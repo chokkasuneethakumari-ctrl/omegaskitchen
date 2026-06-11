@@ -40,6 +40,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "34f44faf-a90e-4853-990b-b634ff362d23"
+      }
+    },
+    "owner": "suneethakumari"
   }
 }
