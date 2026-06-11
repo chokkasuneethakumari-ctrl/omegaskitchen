@@ -13,14 +13,14 @@
       "distribution": "internal",
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://REPLACE-WITH-YOUR-DEPLOYED-API.onrender.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://omega-kitchen-api.onrender.com"
       }
     },
     "production": {
       "autoIncrement": true,
       "android": { "buildType": "app-bundle" },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://REPLACE-WITH-YOUR-DEPLOYED-API.onrender.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://omega-kitchen-api.onrender.com"
       }
     }
   },
