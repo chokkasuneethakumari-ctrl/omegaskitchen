@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -28,6 +29,7 @@ export default function ProfileScreen() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [offers, setOffers] = useState<boolean | null>(null);
 
   const [changePwOpen, setChangePwOpen] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
@@ -86,6 +88,22 @@ export default function ProfileScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    api<{ marketing_opt_in: boolean }>("/me/notifications")
+      .then((r) => setOffers(r.marketing_opt_in))
+      .catch(() => setOffers(true));
+  }, []);
+
+  const toggleOffers = async (v: boolean) => {
+    setOffers(v);
+    try {
+      await api("/me/notifications", { method: "PATCH", body: { opt_in: v } });
+    } catch (e: any) {
+      setOffers(!v);
+      toast.show(e.message || "Couldn't update preference", "error");
+    }
+  };
 
   const signOut = async () => {
     await logout();
@@ -228,6 +246,22 @@ export default function ProfileScreen() {
             <Text style={[styles.linkText, { color: C.error }]}>Delete account</Text>
             <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
           </Pressable>
+        </View>
+
+        <Text style={styles.sectionTitle}>Notifications</Text>
+        <View style={styles.linkCard}>
+          <View style={styles.linkRow}>
+            <Ionicons name="mail-outline" size={18} color={C.brand} />
+            <Text style={styles.linkText}>Email me offers &amp; news</Text>
+            <Switch
+              testID="offers-toggle"
+              value={!!offers}
+              onValueChange={toggleOffers}
+              disabled={offers === null}
+              trackColor={{ true: C.brand, false: C.borderStrong }}
+              thumbColor="#FFF"
+            />
+          </View>
         </View>
 
         <Text style={styles.sectionTitle}>Legal</Text>

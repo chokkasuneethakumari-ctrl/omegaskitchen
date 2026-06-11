@@ -5,6 +5,7 @@ import { Redirect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -20,6 +21,7 @@ import {
   AdminUser,
   api,
   AppSettings,
+  BroadcastResult,
   CustomRequest,
   MenuItem,
   Order,
@@ -87,6 +89,9 @@ export default function AdminScreen() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [announcementDraft, setAnnouncementDraft] = useState("");
   const announcementInitialized = useRef(false);
+  const [bcastSubject, setBcastSubject] = useState("");
+  const [bcastMessage, setBcastMessage] = useState("");
+  const [bcastBusy, setBcastBusy] = useState(false);
 
   // two-step verification
   const [twofaOn, setTwofaOn] = useState(!!user?.twofa_enabled);
@@ -298,6 +303,40 @@ export default function AdminScreen() {
     } catch (e: any) {
       toast.show(e.message || "Couldn't save settings", "error");
     }
+  };
+
+  const sendBroadcast = async () => {
+    setBcastBusy(true);
+    try {
+      const res = await api<BroadcastResult>("/admin/broadcast", {
+        method: "POST",
+        body: { subject: bcastSubject.trim(), message: bcastMessage.trim() },
+      });
+      if (res.provider === "none") {
+        toast.show("Email isn't set up yet — add RESEND_API_KEY in Render", "error");
+      } else if (res.sent === 0) {
+        toast.show("No subscribed customers to email yet", "info");
+      } else {
+        toast.show(`Sent to ${res.sent} customer${res.sent === 1 ? "" : "s"} ✅`);
+        setBcastSubject("");
+        setBcastMessage("");
+      }
+    } catch (e: any) {
+      toast.show(e.message || "Couldn't send email", "error");
+    } finally {
+      setBcastBusy(false);
+    }
+  };
+
+  const confirmBroadcast = () => {
+    if (!bcastSubject.trim() || !bcastMessage.trim()) {
+      toast.show("Add a subject and a message first", "error");
+      return;
+    }
+    Alert.alert("Send offer email?", "This emails every customer who hasn't opted out of offers.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Send", onPress: sendBroadcast },
+    ]);
   };
 
   const start2fa = async () => {
@@ -814,6 +853,40 @@ export default function AdminScreen() {
                     onPress={() => saveSettings({ announcement: announcementDraft.trim() })}
                   >
                     <Text style={styles.saveSmallText}>Save announcement</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.settingCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingTitle}>Email offer / newsletter</Text>
+                  <Text style={styles.settingSub}>Emails every customer subscribed to offers</Text>
+                  <TextInput
+                    testID="admin-broadcast-subject"
+                    style={styles.announceInput}
+                    placeholder="Subject — e.g. Weekend special: 20% off biryani"
+                    placeholderTextColor={C.textTertiary}
+                    value={bcastSubject}
+                    onChangeText={setBcastSubject}
+                  />
+                  <TextInput
+                    testID="admin-broadcast-message"
+                    style={[styles.announceInput, { minHeight: 88 }]}
+                    placeholder="Write your message to customers…"
+                    placeholderTextColor={C.textTertiary}
+                    value={bcastMessage}
+                    onChangeText={setBcastMessage}
+                    multiline
+                  />
+                  <Pressable
+                    testID="admin-broadcast-send"
+                    style={[styles.saveSmallBtn, bcastBusy && { opacity: 0.6 }]}
+                    onPress={confirmBroadcast}
+                    disabled={bcastBusy}
+                  >
+                    <Text style={styles.saveSmallText}>
+                      {bcastBusy ? "Sending…" : "Send to all customers"}
+                    </Text>
                   </Pressable>
                 </View>
               </View>

@@ -164,3 +164,9 @@ export interface TwoFASetup {
   otpauth_uri: string;
   qr_data_uri: string;
 }
+
+export interface BroadcastResult {
+  recipients: number;
+  sent: number;
+  provider: string;
+}
