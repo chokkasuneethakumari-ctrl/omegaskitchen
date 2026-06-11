@@ -1,15 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useEvent } from "expo";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
+import { useVideoPlayer, VideoView } from "expo-video";
 import React from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { IS_ADMIN_APP } from "@/src/appVariant";
 import { useAuth } from "@/src/context/AuthContext";
-import { C, F, HERO_IMAGE, R, SP } from "@/src/theme";
+import { C, F, HERO_IMAGE, HERO_VIDEO, R, SP } from "@/src/theme";
 
 const FEATURES = [
   { icon: "leaf", label: "Market-fresh produce, cooked to order" },
@@ -21,6 +24,14 @@ export default function Welcome() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  const player = useVideoPlayer(HERO_VIDEO, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+  const statusEvent = useEvent(player, "statusChange");
+  const videoErrored = statusEvent?.status === "error";
 
   if (loading) {
     return (
@@ -34,9 +45,22 @@ export default function Welcome() {
     return <Redirect href={user.role === "admin" ? "/admin" : "/(tabs)/home"} />;
   }
 
+  // The admin build skips the customer welcome and opens straight to staff sign-in.
+  if (IS_ADMIN_APP) {
+    return <Redirect href="/auth" />;
+  }
+
   return (
     <View style={styles.container} testID="welcome-screen">
       <Image source={{ uri: HERO_IMAGE }} style={StyleSheet.absoluteFill} contentFit="cover" />
+      {!videoErrored && (
+        <VideoView
+          player={player}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          nativeControls={false}
+        />
+      )}
       <LinearGradient
         colors={["rgba(28,28,30,0.25)", "rgba(28,28,30,0.55)", "rgba(28,28,30,0.95)"]}
         style={StyleSheet.absoluteFill}

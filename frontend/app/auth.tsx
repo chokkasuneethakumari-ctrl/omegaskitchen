@@ -12,6 +12,7 @@ import {
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { IS_ADMIN_APP } from "@/src/appVariant";
 import { useToast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { C, F, R, SP } from "@/src/theme";
@@ -19,7 +20,7 @@ import { C, F, R, SP } from "@/src/theme";
 type Mode = "login" | "signup";
 
 export default function AuthScreen() {
-  const { login, register } = useAuth();
+  const { login, register, logout } = useAuth();
   const toast = useToast();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -54,6 +55,11 @@ export default function AuthScreen() {
           router.push({ pathname: "/twofa", params: { token: res.twofaToken } });
           return;
         }
+        if (IS_ADMIN_APP && res.user.role !== "admin") {
+          await logout();
+          toast.show("This app is for staff accounts only.", "error");
+          return;
+        }
         router.replace(res.user.role === "admin" ? "/admin" : "/(tabs)/home");
       } else {
         const user = await register({
@@ -82,36 +88,46 @@ export default function AuthScreen() {
         bottomOffset={32}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable testID="auth-back-button" style={styles.back} onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={22} color={C.text} />
-        </Pressable>
+        {!IS_ADMIN_APP && (
+          <Pressable testID="auth-back-button" style={styles.back} onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={22} color={C.text} />
+          </Pressable>
+        )}
 
         <View style={styles.logoBadge}>
           <Ionicons name="restaurant" size={26} color={C.brand} />
         </View>
         <Text style={styles.title}>
-          {mode === "login" ? "Welcome back" : "Join the kitchen"}
+          {IS_ADMIN_APP
+            ? "Staff sign in"
+            : mode === "login"
+            ? "Welcome back"
+            : "Join the kitchen"}
         </Text>
         <Text style={styles.subtitle}>
-          {mode === "login"
+          {IS_ADMIN_APP
+            ? "Sign in with your administrator account to manage the kitchen."
+            : mode === "login"
             ? "Reserve from today's menu and follow your order, every step of the way."
             : "We cook to order in small batches — nothing reheated, nothing left waiting."}
         </Text>
 
-        <View style={styles.toggle}>
-          {(["login", "signup"] as Mode[]).map((m) => (
-            <Pressable
-              key={m}
-              testID={`auth-mode-${m}`}
-              onPress={() => setMode(m)}
-              style={[styles.toggleItem, mode === m && styles.toggleActive]}
-            >
-              <Text style={[styles.toggleText, mode === m && styles.toggleTextActive]}>
-                {m === "login" ? "Sign In" : "Sign Up"}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        {!IS_ADMIN_APP && (
+          <View style={styles.toggle}>
+            {(["login", "signup"] as Mode[]).map((m) => (
+              <Pressable
+                key={m}
+                testID={`auth-mode-${m}`}
+                onPress={() => setMode(m)}
+                style={[styles.toggleItem, mode === m && styles.toggleActive]}
+              >
+                <Text style={[styles.toggleText, mode === m && styles.toggleTextActive]}>
+                  {m === "login" ? "Sign In" : "Sign Up"}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         {mode === "signup" && (
           <View style={styles.field}>

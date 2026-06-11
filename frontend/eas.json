@@ -16,6 +16,14 @@
         "EXPO_PUBLIC_BACKEND_URL": "https://omega-kitchen-api.onrender.com"
       }
     },
+    "admin": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://omega-kitchen-api.onrender.com",
+        "EXPO_PUBLIC_APP_VARIANT": "admin"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "android": { "buildType": "app-bundle" },

@@ -69,3 +69,8 @@ export const FOOD_IMAGES = [
 
 export const HERO_IMAGE =
   "https://images.unsplash.com/photo-1727352037068-9091d4789738?w=2000&q=92&auto=format&fit=crop";
+
+// Ambient kitchen footage for the welcome hero — streamed from a range-enabled CDN,
+// with HERO_IMAGE shown instantly beneath as a poster. Swap in your own footage anytime.
+export const HERO_VIDEO =
+  "https://videos.pexels.com/video-files/854565/854565-hd_1920_1080_25fps.mp4";
