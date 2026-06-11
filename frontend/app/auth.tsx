@@ -94,8 +94,8 @@ export default function AuthScreen() {
         </Text>
         <Text style={styles.subtitle}>
           {mode === "login"
-            ? "Sign in to pre-order and track your queue spot."
-            : "We'll confirm your orders on your phone number."}
+            ? "Reserve from today's menu and follow your order, every step of the way."
+            : "We cook to order in small batches — nothing reheated, nothing left waiting."}
         </Text>
 
         <View style={styles.toggle}>

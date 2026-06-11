@@ -9,6 +9,7 @@ export const C = {
   brand: "#D35400",
   brandSecondary: "#E67E22",
   brandTint: "#FDEBD0",
+  accent: "#D8A657",
   success: "#27AE60",
   successTint: "#E8F8EF",
   warning: "#F39C12",
@@ -54,14 +55,17 @@ export const STATUS_META: Record<
   cancelled: { label: "Cancelled", color: "#C0392B", tint: "#FBEAE8", icon: "close-circle" },
 };
 
+// Crisp, retina-grade food photography served from the Unsplash CDN (auto-format ->
+// webp/avif), cached on-device by expo-image. Hosting remotely keeps the APK lean while
+// the visuals stay sharp on high-density displays.
 export const FOOD_IMAGES = [
-  "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=800&q=80",
-  "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=800&q=80",
-  "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=800&q=80",
-  "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=800&q=80",
-  "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=800&q=80",
-  "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=800&q=80",
+  "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=1400&q=88&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=1400&q=88&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=1400&q=88&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=1400&q=88&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=1400&q=88&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=1400&q=88&auto=format&fit=crop",
 ];
 
 export const HERO_IMAGE =
-  "https://images.unsplash.com/photo-1727352037068-9091d4789738?w=1200&q=85";
+  "https://images.unsplash.com/photo-1727352037068-9091d4789738?w=2000&q=92&auto=format&fit=crop";

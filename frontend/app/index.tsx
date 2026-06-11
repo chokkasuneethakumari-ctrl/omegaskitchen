@@ -12,9 +12,9 @@ import { useAuth } from "@/src/context/AuthContext";
 import { C, F, HERO_IMAGE, R, SP } from "@/src/theme";
 
 const FEATURES = [
-  { icon: "list", label: "First In, First Out queue" },
-  { icon: "restaurant", label: "Fresh menu posted daily" },
-  { icon: "chatbubbles", label: "Ask the chef anything" },
+  { icon: "leaf", label: "Market-fresh produce, cooked to order" },
+  { icon: "sparkles", label: "Prepared in a meticulously clean kitchen" },
+  { icon: "restaurant", label: "A menu composed afresh each morning" },
 ];
 
 export default function Welcome() {
@@ -55,8 +55,8 @@ export default function Welcome() {
           <Text style={styles.brandTag}>WELCOME TO</Text>
           <Text style={styles.title}>Omega&apos;s{"\n"}Kitchen</Text>
           <Text style={styles.subtitle}>
-            Pre-order today&apos;s home-style food or ask our chef to cook what you crave. First come,
-            first served — always fresh.
+            Reserve today&apos;s home-style menu, or commission our chef to prepare exactly what you
+            crave — each dish made to order and served at its peak.
           </Text>
         </Animated.View>
 
@@ -87,7 +87,7 @@ export default function Welcome() {
 }
 
 const styles = StyleSheet.create({
-  loading: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.surface },
+  loading: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.inverse },
   container: { flex: 1, backgroundColor: C.inverse },
   content: { flex: 1, paddingHorizontal: SP.xl },
   deliveryBadge: {
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   },
   deliveryText: { color: C.brandTint, fontFamily: F.medium, fontSize: 12 },
   brandTag: {
-    color: C.brandSecondary,
+    color: C.accent,
     fontFamily: F.semibold,
     fontSize: 12,
     letterSpacing: 2,

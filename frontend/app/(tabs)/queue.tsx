@@ -73,8 +73,8 @@ export default function QueueScreen() {
       <View style={[styles.header, { paddingTop: insets.top + SP.sm }]}>
         <Text style={styles.title}>Live Queue</Text>
         <View style={styles.fifoBadge}>
-          <Ionicons name="swap-vertical" size={13} color={C.brand} />
-          <Text style={styles.fifoText}>First In · First Out</Text>
+          <Ionicons name="time-outline" size={13} color={C.brand} />
+          <Text style={styles.fifoText}>In the order received</Text>
         </View>
       </View>
 
