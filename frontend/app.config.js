@@ -11,9 +11,15 @@ module.exports = ({ config }) => {
     ...config,
     name: "Omega's Kitchen Admin",
     scheme: "omegaadmin",
+    icon: "./assets/images/icon-admin.png",
     android: {
       ...config.android,
       package: "com.omegaskitchen.admin",
+      adaptiveIcon: {
+        foregroundImage: "./assets/images/adaptive-icon-admin.png",
+        backgroundImage: "./assets/images/adaptive-bg-admin.png",
+        backgroundColor: "#0E1014",
+      },
     },
   };
 };
