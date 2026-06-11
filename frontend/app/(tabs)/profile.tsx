@@ -28,6 +28,7 @@ export default function ProfileScreen() {
   const toast = useToast();
 
   const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersError, setOrdersError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [offers, setOffers] = useState<boolean | null>(null);
 
@@ -78,8 +79,9 @@ export default function ProfileScreen() {
     try {
       const res = await api<Order[]>("/orders/my");
       setOrders(res);
+      setOrdersError(false);
     } catch {
-      // silent
+      setOrdersError(true);
     } finally {
       setRefreshing(false);
     }
@@ -92,13 +94,17 @@ export default function ProfileScreen() {
   useEffect(() => {
     api<{ marketing_opt_in: boolean }>("/me/notifications")
       .then((r) => setOffers(r.marketing_opt_in))
-      .catch(() => setOffers(true));
+      .catch(() => setOffers(null));
   }, []);
 
   const toggleOffers = async (v: boolean) => {
     setOffers(v);
     try {
-      await api("/me/notifications", { method: "PATCH", body: { opt_in: v } });
+      const r = await api<{ marketing_opt_in: boolean }>("/me/notifications", {
+        method: "PATCH",
+        body: { opt_in: v },
+      });
+      setOffers(r.marketing_opt_in);
     } catch (e: any) {
       setOffers(!v);
       toast.show(e.message || "Couldn't update preference", "error");
@@ -151,11 +157,11 @@ export default function ProfileScreen() {
           <View style={styles.divider} />
           <View style={styles.infoRow}>
             <Ionicons name="call" size={16} color={C.brand} />
-            <Text style={styles.infoText} testID="profile-phone">
+            <Text style={styles.infoText} testID="profile-phone" numberOfLines={1}>
               {user?.phone}
             </Text>
             <View style={styles.verifiedChip}>
-              <Text style={styles.verifiedText}>Order confirmation number</Text>
+              <Text style={styles.verifiedText}>For pickup confirmation</Text>
             </View>
           </View>
         </View>
@@ -189,10 +195,19 @@ export default function ProfileScreen() {
         {/* order history */}
         <Text style={styles.sectionTitle}>Order History</Text>
         {orders.length === 0 ? (
-          <View style={styles.emptyCard} testID="history-empty-state">
-            <Ionicons name="receipt-outline" size={36} color={C.borderStrong} />
-            <Text style={styles.emptyText}>No orders yet — today&apos;s menu is waiting!</Text>
-          </View>
+          ordersError ? (
+            <View style={styles.emptyCard} testID="history-error-state">
+              <Ionicons name="cloud-offline-outline" size={36} color={C.borderStrong} />
+              <Text style={styles.emptyText}>
+                Couldn&apos;t load your orders — pull down to refresh
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.emptyCard} testID="history-empty-state">
+              <Ionicons name="receipt-outline" size={36} color={C.borderStrong} />
+              <Text style={styles.emptyText}>No orders yet — today&apos;s menu is waiting!</Text>
+            </View>
+          )
         ) : (
           orders.map((order) => (
             <View key={order.id} style={styles.orderCard} testID={`history-order-${order.id}`}>
@@ -405,7 +420,7 @@ const styles = StyleSheet.create({
   email: { fontFamily: F.regular, fontSize: 13, color: C.textSecondary, marginTop: 1 },
   divider: { height: 1, backgroundColor: C.border, marginVertical: SP.md },
   infoRow: { flexDirection: "row", alignItems: "center", gap: SP.sm },
-  infoText: { fontFamily: F.medium, fontSize: 14, color: C.text },
+  infoText: { flex: 1, fontFamily: F.medium, fontSize: 14, color: C.text },
   verifiedChip: {
     marginLeft: "auto",
     backgroundColor: C.surfaceTertiary,

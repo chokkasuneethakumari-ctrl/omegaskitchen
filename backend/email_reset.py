@@ -13,6 +13,8 @@ Endpoints (all under /api):
   GET   /unsubscribe?token=...                       -> one-click opt-out link used in emails
 """
 
+import html
+import hmac
 import logging
 import os
 import secrets
@@ -59,11 +61,17 @@ async def _current_user(creds: Optional[HTTPAuthorizationCredentials] = Depends(
         payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
+    # Only a full session token authenticates here — reject 2FA-pending / unsubscribe
+    # tokens, which share the same secret but carry these marker claims.
+    if payload.get("twofa") or payload.get("unsub") or payload.get("typ"):
+        raise HTTPException(status_code=401, detail="Invalid session")
     user = await _db.users.find_one(
         {"id": payload.get("sub")}, {"_id": 0, "password_hash": 0, "totp_secret": 0}
     )
     if not user:
         raise HTTPException(status_code=401, detail="Account not found")
+    if user.get("is_active") is False:
+        raise HTTPException(status_code=403, detail="This account has been disabled")
     return user
 
 
@@ -98,13 +106,17 @@ def _reset_html(code: str) -> str:
 
 
 def _unsub_token(user_id: str) -> str:
-    return jwt.encode({"sub": user_id, "unsub": True}, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return jwt.encode(
+        {"sub": user_id, "unsub": True, "typ": "unsub", "exp": _now() + timedelta(days=90)},
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM,
+    )
 
 
 def _broadcast_html(user: dict, message: str) -> str:
-    first = (user.get("name") or "there").split(" ")[0]
+    first = html.escape((user.get("name") or "there").split(" ")[0])
     unsub = f"{PUBLIC_BASE_URL}/api/unsubscribe?token={_unsub_token(user['id'])}"
-    body = message.replace("\n", "<br>")
+    body = html.escape(message).replace("\n", "<br>")
     return _shell(
         f"<p>Hi {first},</p>"
         f'<p style="line-height:1.6">{body}</p>'
@@ -141,23 +153,29 @@ async def forgot_password(payload: ForgotPasswordIn):
     email = payload.email.lower()
     user = await _db.users.find_one({"email": email})
     if user:
-        code = f"{secrets.randbelow(1_000_000):06d}"
-        await _db.password_resets.update_one(
-            {"email": email},
-            {"$set": {
-                "email": email,
-                "code": code,
-                "expires_at": (_now() + timedelta(minutes=RESET_CODE_TTL_MINUTES)).isoformat(),
-            }},
-            upsert=True,
-        )
-        await email_service.send_email(
-            email,
-            "Your Omega's Kitchen password reset code",
-            html=_reset_html(code),
-            text=f"Your Omega's Kitchen password reset code is {code} "
-            f"(expires in {RESET_CODE_TTL_MINUTES} minutes).",
-        )
+        existing = await _db.password_resets.find_one({"email": email})
+        # Cooldown: don't re-send if a code was issued in the last 60s (anti email-bomb).
+        cutoff = (_now() - timedelta(seconds=60)).isoformat()
+        if not (existing and existing.get("issued_at", "") > cutoff):
+            code = f"{secrets.randbelow(1_000_000):06d}"
+            await _db.password_resets.update_one(
+                {"email": email},
+                {"$set": {
+                    "email": email,
+                    "code": code,
+                    "attempts": 0,
+                    "issued_at": _now().isoformat(),
+                    "expires_at": (_now() + timedelta(minutes=RESET_CODE_TTL_MINUTES)).isoformat(),
+                }},
+                upsert=True,
+            )
+            await email_service.send_email(
+                email,
+                "Your Omega's Kitchen password reset code",
+                html=_reset_html(code),
+                text=f"Your Omega's Kitchen password reset code is {code} "
+                f"(expires in {RESET_CODE_TTL_MINUTES} minutes).",
+            )
     # Always report success so we never reveal whether an email is registered.
     return {"sent": True}
 
@@ -166,11 +184,21 @@ async def forgot_password(payload: ForgotPasswordIn):
 async def reset_password(payload: ResetPasswordIn):
     email = payload.email.lower()
     rec = await _db.password_resets.find_one({"email": email})
-    if not rec or rec.get("code") != payload.code:
+    if not rec:
         raise HTTPException(status_code=400, detail="Invalid or expired reset code")
     if rec.get("expires_at", "") < _now().isoformat():
         await _db.password_resets.delete_one({"email": email})
         raise HTTPException(status_code=400, detail="Reset code has expired - request a new one")
+    # Constant-time compare + a 5-try cap so the 6-digit code can't be brute-forced.
+    if not hmac.compare_digest(str(rec.get("code", "")), payload.code):
+        attempts = int(rec.get("attempts", 0)) + 1
+        if attempts >= 5:
+            await _db.password_resets.delete_one({"email": email})
+            raise HTTPException(
+                status_code=429, detail="Too many incorrect attempts - request a new reset code"
+            )
+        await _db.password_resets.update_one({"email": email}, {"$set": {"attempts": attempts}})
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
     hashed = bcrypt.hashpw(payload.new_password.encode(), bcrypt.gensalt()).decode()
     await _db.users.update_one({"email": email}, {"$set": {"password_hash": hashed}})
     await _db.password_resets.delete_one({"email": email})
@@ -216,7 +244,7 @@ async def unsubscribe(token: str):
         data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError:
         raise HTTPException(status_code=400, detail="Invalid unsubscribe link")
-    if not data.get("unsub"):
+    if not data.get("unsub") or data.get("typ") != "unsub":
         raise HTTPException(status_code=400, detail="Invalid unsubscribe link")
     await _db.users.update_one({"id": data.get("sub")}, {"$set": {"marketing_opt_in": False}})
     return _shell(

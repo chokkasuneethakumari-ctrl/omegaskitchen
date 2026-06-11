@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     padding: SP.lg,
     borderWidth: 1.5,
     borderColor: C.brandTint,
-    shadowColor: "#D35400",
+    shadowColor: C.brand,
     shadowOpacity: 0.08,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },

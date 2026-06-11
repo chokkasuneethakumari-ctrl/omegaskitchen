@@ -46,7 +46,9 @@ export async function api<T = any>(
     } catch {}
     throw new ApiError(detail, res.status);
   }
-  return res.json();
+  if (res.status === 204) return undefined as T;
+  const text = await res.text();
+  return (text ? JSON.parse(text) : (undefined as T));
 }
 
 // ---------- types ----------
@@ -115,6 +117,7 @@ export interface QueueResponse {
   queue_length: number;
   my_position: number | null;
   est_wait_minutes: number | null;
+  min_prep_minutes?: number;
   my_active_order: Order | null;
 }
 

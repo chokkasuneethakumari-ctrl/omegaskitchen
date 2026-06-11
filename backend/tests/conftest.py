@@ -2,7 +2,7 @@ import os
 import pytest
 import requests
 
-BASE_URL = "https://omega-kitchen.preview.emergentagent.com"
+BASE_URL = os.environ.get("OMEGA_API_BASE", "https://omega-kitchen-api.onrender.com")
 
 
 @pytest.fixture(scope="session")

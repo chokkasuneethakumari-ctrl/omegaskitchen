@@ -121,7 +121,13 @@ def _send_batch_sync(messages: list) -> int:
                 timeout=30,
             )
             if r.ok:
-                sent += len(chunk)
+                # Count what Resend actually accepted (its 200 returns a data[] array);
+                # fall back to the chunk size only if the body can't be parsed.
+                try:
+                    accepted = len((r.json() or {}).get("data") or [])
+                except Exception:  # noqa: BLE001
+                    accepted = 0
+                sent += accepted or len(chunk)
             else:
                 logger.error("Resend batch failed: %s %s", r.status_code, r.text[:200])
         except Exception as e:  # noqa: BLE001

@@ -1,10 +1,11 @@
 """Omega's Kitchen — backend regression suite."""
+import os
 import time
 import uuid
 import pytest
 import requests
 
-BASE = "https://omega-kitchen.preview.emergentagent.com/api"
+BASE = os.environ.get("OMEGA_API_BASE", "https://omega-kitchen-api.onrender.com") + "/api"
 ADMIN_EMAIL = "admin@omegaskitchen.com"
 ADMIN_PASSWORD = "OmegaAdmin2026!"
 

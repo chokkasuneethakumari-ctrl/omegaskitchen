@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   AdminUser,
   api,
+  ApiError,
   AppSettings,
   BroadcastResult,
   CustomRequest,
@@ -126,13 +127,17 @@ export default function AdminScreen() {
         setAnnouncementDraft(st.announcement);
         announcementInitialized.current = true;
       }
-    } catch {
-      // silent
+    } catch (e: any) {
+      if (e instanceof ApiError && e.status === 401) {
+        await logout();
+        router.replace("/");
+      }
+      // other errors silent
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [logout, router]);
 
   useEffect(() => {
     if (user?.role === "admin") {
@@ -423,7 +428,7 @@ export default function AdminScreen() {
             <Text style={[styles.statNum, { color: C.warning }]}>
               {stats?.pending_requests ?? "—"}
             </Text>
-            <Text style={styles.statLabel}>Asks</Text>
+            <Text style={styles.statLabel}>Requests</Text>
           </View>
           <View style={styles.statCard} testID="stat-ready">
             <Text style={[styles.statNum, { color: C.success }]}>{stats?.ready ?? "—"}</Text>
@@ -609,7 +614,7 @@ export default function AdminScreen() {
                   <View style={styles.reqTop}>
                     <View style={styles.reqAvatar}>
                       <Text style={styles.reqAvatarText}>
-                        {req.user_name.charAt(0).toUpperCase()}
+                        {(req.user_name || "?").charAt(0).toUpperCase()}
                       </Text>
                     </View>
                     <View style={{ flex: 1 }}>
@@ -757,7 +762,7 @@ export default function AdminScreen() {
               {filteredUsers.map((u) => (
                 <View key={u.id} style={styles.userCard} testID={`admin-user-${u.id}`}>
                   <View style={styles.reqAvatar}>
-                    <Text style={styles.reqAvatarText}>{u.name.charAt(0).toUpperCase()}</Text>
+                    <Text style={styles.reqAvatarText}>{(u.name || "?").charAt(0).toUpperCase()}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={styles.userNameRow}>
@@ -966,11 +971,12 @@ export default function AdminScreen() {
             <Text style={styles.sheetLabel}>Message (optional)</Text>
             <TextInput
               testID="reply-message-input"
-              style={styles.sheetInput}
+              style={styles.announceInput}
               placeholder="Yes! Ready in 40 min..."
               placeholderTextColor={C.textTertiary}
               value={replyMessage}
               onChangeText={setReplyMessage}
+              multiline
             />
             <View style={styles.sheetActions}>
               <Pressable
@@ -979,7 +985,11 @@ export default function AdminScreen() {
                 onPress={() => sendReply("rejected")}
                 disabled={replying}
               >
-                <Text style={styles.rejectText}>Can&apos;t Make It</Text>
+                {replying ? (
+                  <ActivityIndicator color={C.error} size="small" />
+                ) : (
+                  <Text style={styles.rejectText}>Can&apos;t Make It</Text>
+                )}
               </Pressable>
               <Pressable
                 testID="approve-request-button"

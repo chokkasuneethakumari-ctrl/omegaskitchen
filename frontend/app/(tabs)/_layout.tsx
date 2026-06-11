@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import React, { useEffect, useRef } from "react";
 
-import { api, QueueResponse } from "@/src/api/client";
+import { api, ApiError, QueueResponse } from "@/src/api/client";
 import { useToast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { C, F } from "@/src/theme";
@@ -15,7 +15,10 @@ function OrderStatusWatcher() {
   const lastStatus = useRef<string | null>(null);
 
   useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    let stopped = false;
     const check = async () => {
+      if (stopped) return;
       try {
         const res = await api<QueueResponse>("/orders/queue");
         const order = res.my_active_order;
@@ -41,13 +44,21 @@ function OrderStatusWatcher() {
           lastOrderId.current = null;
           lastStatus.current = null;
         }
-      } catch {
-        // silent poll failure
+      } catch (e) {
+        // Expired/invalid session: stop polling instead of spinning forever.
+        if (e instanceof ApiError && e.status === 401) {
+          stopped = true;
+          if (interval) clearInterval(interval);
+        }
+        // otherwise: silent poll failure
       }
     };
     check();
-    const interval = setInterval(check, 12000);
-    return () => clearInterval(interval);
+    interval = setInterval(check, 12000);
+    return () => {
+      stopped = true;
+      if (interval) clearInterval(interval);
+    };
   }, [toast]);
 
   return null;

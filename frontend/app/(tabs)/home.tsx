@@ -193,9 +193,11 @@ export default function HomeScreen() {
               testID={`preorder-button-${item.id}`}
               onPress={() => openPreOrder(item)}
               disabled={soldOut}
-              style={[styles.orderBtn, soldOut && { backgroundColor: C.borderStrong }]}
+              style={[styles.orderBtn, soldOut && { backgroundColor: C.surfaceTertiary }]}
             >
-              <Text style={styles.orderBtnText}>{soldOut ? "Sold Out" : "Pre-Order"}</Text>
+              <Text style={[styles.orderBtnText, soldOut && { color: C.textTertiary }]}>
+                {soldOut ? "Sold Out" : "Pre-Order"}
+              </Text>
             </Pressable>
           </View>
         </View>

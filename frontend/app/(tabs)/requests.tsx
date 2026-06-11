@@ -36,24 +36,27 @@ export default function RequestsScreen() {
 
   const [requests, setRequests] = useState<CustomRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [accepting, setAccepting] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (initial = false) => {
     try {
       const res = await api<CustomRequest[]>("/requests/my");
       setRequests(res);
+      setError(false);
     } catch {
-      // silent
+      // surface only on the first load; keep the background poll silent
+      if (initial) setError(true);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 10000);
+    load(true);
+    const interval = setInterval(() => load(), 10000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -108,6 +111,14 @@ export default function RequestsScreen() {
           <View style={styles.center}>
             <ActivityIndicator size="large" color={C.brand} />
           </View>
+        ) : error ? (
+          <Pressable style={[styles.center, { gap: SP.sm }]} onPress={() => load(true)} testID="requests-error-state">
+            <Ionicons name="cloud-offline-outline" size={44} color={C.borderStrong} />
+            <Text style={styles.emptyTitle}>Couldn&apos;t load — tap to retry</Text>
+            <Text style={styles.emptySub}>
+              We couldn&apos;t reach the kitchen. Check your connection and tap to try again.
+            </Text>
+          </Pressable>
         ) : (
           <ScrollView
             ref={scrollRef}

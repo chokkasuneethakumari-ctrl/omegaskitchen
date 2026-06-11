@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
-from starlette.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -139,6 +139,9 @@ async def get_current_user(
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
+    # A 2FA-pending token must not authenticate a full session (only /auth/2fa/verify accepts it).
+    if payload.get("twofa"):
+        raise HTTPException(status_code=401, detail="Complete two-step verification to continue")
     user = await db.users.find_one(
         {"id": payload.get("sub")}, {"_id": 0, "password_hash": 0, "totp_secret": 0}
     )
@@ -245,10 +248,9 @@ class UpdateProfileIn(BaseModel):
 @api_router.post("/auth/register")
 async def register(payload: RegisterIn):
     email = payload.email.lower()
-    if await db.users.find_one({"email": email}):
-        raise HTTPException(status_code=400, detail="Email already registered")
-    if await db.users.find_one({"phone": payload.phone}):
-        raise HTTPException(status_code=400, detail="Phone number already registered")
+    # Single generic conflict message so registration can't enumerate which emails/phones exist.
+    if await db.users.find_one({"$or": [{"email": email}, {"phone": payload.phone}]}):
+        raise HTTPException(status_code=400, detail="An account with those details already exists")
     referred_by = None
     if payload.referral_code:
         referrer = await db.users.find_one(
@@ -488,16 +490,33 @@ async def create_order(payload: OrderIn, user: dict = Depends(get_current_user))
             {"menu_item_id": doc["id"], "name": doc["name"], "price": doc["price"], "qty": it.qty}
         )
         total += doc["price"] * it.qty
-    for it in payload.items:
-        await db.menu_items.update_one({"id": it.menu_item_id}, {"$inc": {"available_qty": -it.qty}})
+    # Atomically decrement stock, guarded so two concurrent orders can't drive it negative.
+    decremented = []
+    for oi in order_items:
+        res = await db.menu_items.update_one(
+            {"id": oi["menu_item_id"], "available_qty": {"$gte": oi["qty"]}},
+            {"$inc": {"available_qty": -oi["qty"]}},
+        )
+        if res.matched_count == 0:
+            for done in decremented:  # lost the race — roll back what we already took
+                await db.menu_items.update_one(
+                    {"id": done["menu_item_id"]}, {"$inc": {"available_qty": done["qty"]}}
+                )
+            raise HTTPException(status_code=400, detail=f"{oi['name']} just sold out")
+        decremented.append(oi)
     credit_applied = 0.0
     if payload.apply_credit:
         udoc = await db.users.find_one({"id": user["id"]}, {"_id": 0})
         avail = float((udoc or {}).get("credit", 0) or 0)
-        credit_applied = round(min(avail, total), 2)
-        if credit_applied > 0:
-            await db.users.update_one({"id": user["id"]}, {"$inc": {"credit": -credit_applied}})
-            total = round(total - credit_applied, 2)
+        want = round(min(avail, total), 2)
+        if want > 0:
+            # Conditional decrement so concurrent orders can't double-spend the same credit.
+            res = await db.users.update_one(
+                {"id": user["id"], "credit": {"$gte": want}}, {"$inc": {"credit": -want}}
+            )
+            if res.matched_count:
+                credit_applied = want
+                total = round(total - credit_applied, 2)
     order = {
         "id": str(uuid.uuid4()),
         "user_id": user["id"],
@@ -896,7 +915,9 @@ app.include_router(reset_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
+    # Bearer-token auth only (no cookies), so credentials aren't needed — and pairing
+    # allow_credentials=True with a "*" origin is invalid per the CORS spec.
+    allow_credentials=False,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
