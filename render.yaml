@@ -1,19 +1,17 @@
-# Render blueprint for the Omega's Kitchen backend (free tier).
-# In Render: New + → "Blueprint" → connect this repo → it reads this file.
-# You'll be prompted for the secret values marked `sync: false`.
+# Render blueprint for the Omega's Kitchen backend.
+# Uses Docker (python:3.12-slim) instead of Render's native Python runtime, because
+# the native runtime's OpenSSL fails the TLS handshake with MongoDB Atlas
+# (TLSV1_ALERT_INTERNAL_ERROR). The slim image's standard OpenSSL connects cleanly.
 services:
   - type: web
     name: omega-kitchen-api
-    runtime: python
+    runtime: docker
     plan: free
     region: oregon
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    dockerfilePath: ./Dockerfile
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.12.3"
-      - key: MONGO_URL          # paste your MongoDB Atlas connection string
+      - key: MONGO_URL          # your MongoDB Atlas connection string
         sync: false
       - key: DB_NAME
         value: omega_kitchen
@@ -21,7 +19,6 @@ services:
         generateValue: true
       - key: ADMIN_EMAIL
         sync: false
-      - key: ADMIN_PASSWORD     # choose a strong admin password
+      - key: ADMIN_PASSWORD
         sync: false
-      # GMAIL_USER / GMAIL_APP_PASSWORD: add these later in the Render dashboard
-      # (Environment tab) when you want real password-reset emails.
+      # GMAIL_USER / GMAIL_APP_PASSWORD (or RESEND_API_KEY): add later in the dashboard.
