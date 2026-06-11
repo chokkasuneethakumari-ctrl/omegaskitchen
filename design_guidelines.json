@@ -1,0 +1,165 @@
+{
+  "app_name": "Omega's Kitchen",
+  "personality": "1 iOS-Native Clean",
+  "personality_one_liner": "An appetizing, high-quality, and structurally clear food pre-ordering experience that feels warm yet operational.",
+  "color": {
+    "surface": "#FAFAFA",
+    "onSurface": "#1C1C1E",
+    "surfaceSecondary": "#FFFFFF",
+    "onSurfaceSecondary": "#1C1C1E",
+    "surfaceTertiary": "#F2F2F7",
+    "onSurfaceTertiary": "#3A3A3C",
+    "surfaceInverse": "#1C1C1E",
+    "onSurfaceInverse": "#FFFFFF",
+    "brand": "#D35400",
+    "brandPrimary": "#D35400",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#E67E22",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#FDEBD0",
+    "onBrandTertiary": "#D35400",
+    "success": "#27AE60",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F39C12",
+    "onWarning": "#FFFFFF",
+    "error": "#C0392B",
+    "onError": "#FFFFFF",
+    "info": "#34495E",
+    "onInfo": "#FFFFFF",
+    "border": "#E5E5EA",
+    "borderStrong": "#C7C7CC",
+    "divider": "#E5E5EA"
+  },
+  "typography": {
+    "displayFontFamily": "Geist",
+    "textFontFamily": "Geist",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Use iOS-native spacing rhythms, generous vertical padding. Thumb zone primary CTAs sticky at bottom. Cards fill horizontal space. Never half-width orphans.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": 1,
+  "navigation": "bottom_tabs",
+  "icon_set": "Ionicons",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Sticky headers over scrolling content",
+      "Bottom tab bar",
+      "Floating action buttons",
+      "Featured cards with imagery (scrim + glass)"
+    ],
+    "dont's": [
+      "Form fields",
+      "Body text regions",
+      "Cards in dense lists"
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Auth",
+      "purpose": "Log in or sign up securely with JWT.",
+      "states": {
+        "loading": "Spinner in center of screen",
+        "empty": "N/A",
+        "error": "Standard alert toast or banner"
+      },
+      "layout": "Clean single column, centered inputs. Sticky 'Continue' CTA at bottom inside KeyboardAvoidingView."
+    },
+    {
+      "name": "Home / Today's Menu",
+      "purpose": "Discover today's kitchen menu, express interest, and pre-order.",
+      "states": {
+        "loading": "Skeleton of featured card and list rows",
+        "empty": "Illustration of empty plate + 'Kitchen is preparing today's menu' + Refresh CTA",
+        "error": "Error message + Retry button"
+      },
+      "layout": "Top bar: 'Home Delivery Coming Soon' badge. Hero section: featured dish card with image background, gradient scrim, and title. Below: horizontal scroll category chips, followed by vertical list of menu items. Each item has 'Interested/Not' chips and a 'Pre-Order' button."
+    },
+    {
+      "name": "Order Queue (Live)",
+      "purpose": "Track live FIFO queue status for placed pre-orders.",
+      "states": {
+        "loading": "Skeleton of queue list",
+        "empty": "Empty plate image + 'No active orders' + 'Browse Menu' primary CTA",
+        "error": "Error message + Retry button"
+      },
+      "layout": "Current active order visually dominant at top (large status chip, ETA). List-first queue view below showing next 3-5 orders in line. Sticky 'Your position' banner at the bottom with explicit wait time."
+    },
+    {
+      "name": "Custom Request Chat",
+      "purpose": "Submit and negotiate off-menu requests with the kitchen.",
+      "states": {
+        "loading": "Skeleton chat bubbles",
+        "empty": "Empty state illustration + 'Ask the chef for something special' + CTA to start request",
+        "error": "Error message + Retry button"
+      },
+      "layout": "Structured message bubbles. Kitchen responses include inline status chips ('Approved - $15'). Bottom-sheet composer for new requests. Quick-reply suggestion chips above keyboard (e.g., 'Less spicy', 'No dairy')."
+    },
+    {
+      "name": "Admin Dashboard",
+      "purpose": "Manage menu, advance order queue, and reply to requests.",
+      "states": {
+        "loading": "Skeleton view of list",
+        "empty": "Checkmark icon + 'All caught up!'",
+        "error": "Error message + Retry button"
+      },
+      "layout": "Segmented control at top (Queue | Requests | Menu). Queue: swipe-to-advance actions on list items. Requests: Chat threads with 'Reply & Set Price' bottom sheet. Menu: Add/edit today's dishes."
+    }
+  ],
+  "images": {
+    "hero_kitchen": {
+      "url": "https://images.unsplash.com/photo-1727352037068-9091d4789738?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzJ8MHwxfHNlYXJjaHwxfHx3YXJtJTIwbW9kZXJuJTIwa2l0Y2hlbiUyMGludGVyaW9yJTIwcmVzdGF1cmFudHxlbnwwfHx8fDE3ODExMTIxNjV8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Warm modern kitchen interior"
+    },
+    "featured_curry": {
+      "url": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MjJ8MHwxfHNlYXJjaHwxfHxmcmVzaCUyMGhvdCUyMGN1cnJ5JTIwZm9vZHxlbnwwfHx8fDE3ODExMTIxNjV8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Fresh hot curry dish"
+    },
+    "empty_queue": {
+      "url": "https://images.unsplash.com/photo-1645802734096-07f97fcd8bf2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzR8MHwxfHNlYXJjaHwxfHxlbXB0eSUyMHBsYXRlJTIwcmVzdGF1cmFudHxlbnwwfHx8fDE3ODExMTIxNjV8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Empty plate with fork and knife"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Ensure all buttons are wrapped in standard Pressable with min 44x44pt hitSlop. Do not use TouchableOpacity.",
+    "Implement 'Home Delivery Coming Soon' as a glassmorphism banner on the Home screen to build anticipation.",
+    "For the Custom Request Chat, implement structured message bubbles where admin responses can contain a distinct price approval chip, rather than just text.",
+    "On the Live Queue screen, ensure the 'current order' is visually distinct from the rest of the FIFO list.",
+    "Follow the defined iOS-Native Clean spacing (generous vertical padding, cards fill horizontal space).",
+    "All images with text overlaid must have a vertical gradient scrim (transparent to 70%+ surfaceInverse).",
+    "Never use indigo, violet, or blue across the app. Stick strictly to the warm Terracotta/Ochre palette provided.",
+    "Ensure the primary pre-order CTA on the menu screen is sticky at the bottom, outside the scroll view."
+  ]
+}

@@ -1,0 +1,27 @@
+# secrets — never commit real env files
+.env
+
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# node / expo / metro
+node_modules/
+.expo/
+.metro-cache/
+dist/
+web-build/
+*.tsbuildinfo
+
+# logs / os / local tooling
+*.log
+.DS_Store
+Thumbs.db
+.claude/
+
+# sensitive project notes / test artifacts
+memory/test_credentials.md
+test_reports/

@@ -1,0 +1,30 @@
+# Render blueprint for the Omega's Kitchen backend (free tier).
+# In Render: New + → "Blueprint" → connect this repo → it reads this file.
+# You'll be prompted for the secret values marked `sync: false`.
+services:
+  - type: web
+    name: omega-kitchen-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+      - key: MONGO_URL          # paste your MongoDB Atlas connection string
+        sync: false
+      - key: DB_NAME
+        value: omega_kitchen
+      - key: JWT_SECRET         # Render generates a strong random value
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD     # choose a strong admin password
+        sync: false
+      # Optional — only needed for Gmail password-reset emails (Phase 2):
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
