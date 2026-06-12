@@ -71,6 +71,7 @@ export default function RequestsScreen() {
       const req = await api<CustomRequest>("/requests", { method: "POST", body: { message: text } });
       setRequests((prev) => [...prev, req]);
       setMessage("");
+      toast.show("Wish sent — the kitchen will reply soon 🍲");
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
     } catch (e: any) {
       toast.show(e.message || "Couldn't send request", "error");

@@ -35,7 +35,7 @@ import { C, F, FOOD_IMAGES, formatPrice, R, SP, STATUS_META } from "@/src/theme"
 
 type Segment = "queue" | "requests" | "menu" | "users" | "settings";
 
-const CATEGORIES = ["Curries", "Rice", "Breads", "Combos", "Snacks", "Dessert"];
+const CATEGORIES = ["Curries", "Rice", "Breads", "Combos", "Snacks", "Dessert", "Pickles", "Namkeen"];
 
 const NEXT_ACTION: Record<string, { next: string; label: string; icon: string }> = {
   placed: { next: "cooking", label: "Start Cooking", icon: "flame" },
@@ -72,13 +72,15 @@ export default function AdminScreen() {
   const [replyMessage, setReplyMessage] = useState("");
   const [replying, setReplying] = useState(false);
 
-  // add dish sheet
+  // add / edit item sheet
   const [addOpen, setAddOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [dishName, setDishName] = useState("");
   const [dishDesc, setDishDesc] = useState("");
   const [dishPrice, setDishPrice] = useState("");
   const [dishQty, setDishQty] = useState("20");
   const [dishCategory, setDishCategory] = useState("Curries");
+  const [dishKind, setDishKind] = useState<"daily" | "standing">("daily");
   const [dishImage, setDishImage] = useState(FOOD_IMAGES[0]);
   const [savingDish, setSavingDish] = useState(false);
 
@@ -193,33 +195,65 @@ export default function AdminScreen() {
     }
   };
 
+  const resetDishForm = () => {
+    setDishName("");
+    setDishDesc("");
+    setDishPrice("");
+    setDishQty("20");
+    setDishCategory("Curries");
+    setDishKind("daily");
+    setDishImage(FOOD_IMAGES[0]);
+  };
+
+  const openAddDish = () => {
+    setEditingId(null);
+    resetDishForm();
+    setAddOpen(true);
+  };
+
+  const openEditDish = (item: MenuItem) => {
+    setEditingId(item.id);
+    setDishName(item.name);
+    setDishDesc(item.description || "");
+    setDishPrice(String(item.price));
+    setDishQty(String(item.available_qty));
+    setDishCategory(item.category || "Curries");
+    setDishKind(item.kind === "standing" ? "standing" : "daily");
+    setDishImage(item.image_url || FOOD_IMAGES[0]);
+    setAddOpen(true);
+  };
+
   const saveDish = async () => {
     if (!dishName.trim() || !dishPrice || isNaN(Number(dishPrice))) {
-      toast.show("Dish name and a valid price are required", "error");
+      toast.show("Item name and a valid price are required", "error");
       return;
     }
     setSavingDish(true);
+    const body = {
+      name: dishName.trim(),
+      description: dishDesc.trim(),
+      price: Number(dishPrice),
+      category: dishCategory,
+      image_url: dishImage,
+      available_qty: Number(dishQty) || 0,
+      kind: dishKind,
+    };
     try {
-      await api("/menu", {
-        method: "POST",
-        body: {
-          name: dishName.trim(),
-          description: dishDesc.trim(),
-          price: Number(dishPrice),
-          category: dishCategory,
-          image_url: dishImage,
-          available_qty: Number(dishQty) || 20,
-        },
-      });
-      toast.show("Dish posted to today's menu 🍛");
+      if (editingId) {
+        await api(`/menu/${editingId}`, { method: "PUT", body });
+        toast.show("Item updated ✅");
+      } else {
+        await api("/menu", { method: "POST", body });
+        toast.show(
+          dishKind === "standing" ? "Added to the catalogue 🫙" : "Dish posted to today's menu 🍛",
+        );
+      }
       setAddOpen(false);
-      setDishName("");
-      setDishDesc("");
-      setDishPrice("");
-      setDishQty("20");
+      setEditingId(null);
+      resetDishForm();
       load();
     } catch (e: any) {
-      toast.show(e.message || "Couldn't add dish", "error");
+      toast.show(e.message || "Couldn't save item", "error");
     } finally {
       setSavingDish(false);
     }
@@ -301,7 +335,12 @@ export default function AdminScreen() {
       const res = await api<AppSettings>("/admin/settings", { method: "PUT", body: patch });
       setSettings(res);
       if (patch.kitchen_open !== undefined) {
-        toast.show(patch.kitchen_open ? "Kitchen is now open" : "Kitchen is now closed", "info");
+        toast.show(
+          patch.kitchen_open
+            ? "Kitchen is now ONLINE — customers notified 🔔"
+            : "Kitchen is now OFFLINE",
+          "info",
+        );
       } else {
         toast.show("Announcement saved");
       }
@@ -673,10 +712,10 @@ export default function AdminScreen() {
               <Pressable
                 testID="admin-add-dish-button"
                 style={styles.addBtn}
-                onPress={() => setAddOpen(true)}
+                onPress={openAddDish}
               >
                 <Ionicons name="add-circle" size={20} color="#FFF" />
-                <Text style={styles.addBtnText}>Post a Dish to Today&apos;s Menu</Text>
+                <Text style={styles.addBtnText}>Add an Item — dish or pantry</Text>
               </Pressable>
               {menu.length === 0 && (
                 <View style={styles.emptyCard} testID="admin-menu-empty">
@@ -696,7 +735,8 @@ export default function AdminScreen() {
                       {item.name}
                     </Text>
                     <Text style={styles.menuMeta}>
-                      {formatPrice(item.price)} · {item.available_qty} left
+                      {item.category} · {formatPrice(item.price)} · {item.available_qty} left
+                      {item.kind === "standing" ? " · pantry" : ""}
                     </Text>
                     <View style={styles.interestRow}>
                       <Ionicons name="thumbs-up" size={12} color={C.success} />
@@ -713,13 +753,22 @@ export default function AdminScreen() {
                       trackColor={{ true: C.brand, false: C.borderStrong }}
                       thumbColor="#FFF"
                     />
-                    <Pressable
-                      testID={`admin-delete-${item.id}`}
-                      style={styles.iconBtn}
-                      onPress={() => deleteDish(item)}
-                    >
-                      <Ionicons name="trash-outline" size={17} color={C.error} />
-                    </Pressable>
+                    <View style={{ flexDirection: "row", gap: SP.sm }}>
+                      <Pressable
+                        testID={`admin-edit-${item.id}`}
+                        style={styles.iconBtnNeutral}
+                        onPress={() => openEditDish(item)}
+                      >
+                        <Ionicons name="create-outline" size={17} color={C.brand} />
+                      </Pressable>
+                      <Pressable
+                        testID={`admin-delete-${item.id}`}
+                        style={styles.iconBtn}
+                        onPress={() => deleteDish(item)}
+                      >
+                        <Ionicons name="trash-outline" size={17} color={C.error} />
+                      </Pressable>
+                    </View>
                   </View>
                 </View>
               ))}
@@ -818,11 +867,21 @@ export default function AdminScreen() {
             <>
               <View style={styles.settingCard}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.settingTitle}>Kitchen status</Text>
+                  <View style={styles.twofaTitleRow}>
+                    <View
+                      style={[
+                        styles.statusDot,
+                        { backgroundColor: settings?.kitchen_open ? C.success : C.textTertiary },
+                      ]}
+                    />
+                    <Text style={styles.settingTitle}>
+                      Kitchen is {settings?.kitchen_open ? "ONLINE" : "OFFLINE"}
+                    </Text>
+                  </View>
                   <Text style={styles.settingSub}>
                     {settings?.kitchen_open
-                      ? "Open — customers can place orders"
-                      : "Closed — new orders are blocked"}
+                      ? "Online — customers can pre-order. Switching on notifies everyone the kitchen is live."
+                      : "Offline — ordering is paused; customers can still send wish requests."}
                   </Text>
                 </View>
                 <Switch
@@ -1007,7 +1066,7 @@ export default function AdminScreen() {
       <Sheet
         visible={addOpen}
         onClose={() => setAddOpen(false)}
-        title="Post today's dish"
+        title={editingId ? "Edit item" : "Add an item"}
         testID="admin-add-dish-sheet"
       >
         <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
@@ -1077,6 +1136,31 @@ export default function AdminScreen() {
               </Pressable>
             ))}
           </ScrollView>
+          <Text style={styles.sheetLabel}>Availability</Text>
+          <View style={styles.kindRow}>
+            {(
+              [
+                { k: "daily", label: "Today's menu", icon: "flame" },
+                { k: "standing", label: "Always available", icon: "infinite" },
+              ] as { k: "daily" | "standing"; label: string; icon: string }[]
+            ).map((opt) => (
+              <Pressable
+                key={opt.k}
+                testID={`dish-kind-${opt.k}`}
+                onPress={() => setDishKind(opt.k)}
+                style={[styles.kindChip, dishKind === opt.k && styles.kindChipActive]}
+              >
+                <Ionicons
+                  name={opt.icon as any}
+                  size={15}
+                  color={dishKind === opt.k ? "#FFF" : C.textSecondary}
+                />
+                <Text style={[styles.kindChipText, dishKind === opt.k && { color: "#FFF" }]}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
           <Text style={styles.sheetLabel}>Photo</Text>
           <ScrollView
             horizontal
@@ -1107,7 +1191,7 @@ export default function AdminScreen() {
             {savingDish ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
-              <Text style={styles.approveText}>Post Dish</Text>
+              <Text style={styles.approveText}>{editingId ? "Save Changes" : "Add Item"}</Text>
             )}
           </Pressable>
         </ScrollView>
@@ -1384,6 +1468,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  iconBtnNeutral: {
+    width: 38,
+    height: 38,
+    borderRadius: R.pill,
+    backgroundColor: C.brandTint,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  kindRow: { flexDirection: "row", gap: SP.sm, marginBottom: SP.md },
+  kindChip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    height: 44,
+    borderRadius: R.md,
+    backgroundColor: C.surfaceTertiary,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  kindChipActive: { backgroundColor: C.brand, borderColor: C.brand },
+  kindChipText: { fontFamily: F.semibold, fontSize: 13, color: C.textSecondary },
+  statusDot: { width: 9, height: 9, borderRadius: 5 },
   advanceBtn: {
     flexDirection: "row",
     alignItems: "center",

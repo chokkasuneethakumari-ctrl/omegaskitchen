@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import io
 import logging
@@ -157,12 +158,21 @@ class MenuItemIn(BaseModel):
     category: str = Field(default="Curries", max_length=30)
     image_url: str = Field(default="")
     available_qty: int = Field(default=20, ge=0, le=500)
+    # "daily" = today's freshly-cooked menu (expires end of day); "standing" = always-available
+    # pantry goods such as pickles and namkeen that never expire.
+    kind: Literal["daily", "standing"] = "daily"
 
 
 class MenuItemUpdate(BaseModel):
+    # Full edit support (Zomato-partner style): the admin can change any field of any item.
+    name: Optional[str] = Field(default=None, min_length=2, max_length=80)
+    description: Optional[str] = Field(default=None, max_length=300)
+    category: Optional[str] = Field(default=None, max_length=30)
+    image_url: Optional[str] = Field(default=None, max_length=600)
     is_available: Optional[bool] = None
     available_qty: Optional[int] = Field(default=None, ge=0, le=500)
     price: Optional[float] = Field(default=None, gt=0)
+    kind: Optional[Literal["daily", "standing"]] = None
 
 
 class OrderItemIn(BaseModel):
@@ -205,6 +215,10 @@ class UserActiveIn(BaseModel):
 class SettingsIn(BaseModel):
     kitchen_open: Optional[bool] = None
     announcement: Optional[str] = Field(default=None, max_length=280)
+
+
+class PushTokenIn(BaseModel):
+    token: str = Field(min_length=10, max_length=255)
 
 
 class ChangePasswordIn(BaseModel):
@@ -371,10 +385,15 @@ async def update_profile(payload: UpdateProfileIn, user: dict = Depends(get_curr
 # ---------- menu ----------
 @api_router.get("/menu/today")
 async def menu_today(user: dict = Depends(get_current_user)):
+    # Today's freshly-cooked dishes (date-bound) PLUS every always-available pantry item
+    # (pickles, namkeen). Legacy items saved before "kind" existed are treated as daily.
     items = (
-        await db.menu_items.find({"date": today_str()}, {"_id": 0})
+        await db.menu_items.find(
+            {"$or": [{"kind": "standing"}, {"kind": {"$ne": "standing"}, "date": today_str()}]},
+            {"_id": 0},
+        )
         .sort("created_at", 1)
-        .to_list(100)
+        .to_list(200)
     )
     ids = [i["id"] for i in items]
     my_map = {}
@@ -433,6 +452,7 @@ async def create_menu_item(payload: MenuItemIn, admin: dict = Depends(require_ad
         "image_url": payload.image_url,
         "available_qty": payload.available_qty,
         "is_available": True,
+        "kind": payload.kind,
         "date": today_str(),
         "created_at": iso_now(),
     }
@@ -445,6 +465,9 @@ async def update_menu_item(item_id: str, payload: MenuItemUpdate, admin: dict = 
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
     if not updates:
         raise HTTPException(status_code=400, detail="Nothing to update")
+    # Re-marking an item as "daily" re-posts it onto today's menu (otherwise it keeps its old date).
+    if updates.get("kind") == "daily":
+        updates["date"] = today_str()
     result = await db.menu_items.update_one({"id": item_id}, {"$set": updates})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Menu item not found")
@@ -472,9 +495,12 @@ async def create_order(payload: OrderIn, user: dict = Depends(get_current_user))
     order_items = []
     total = 0.0
     for it in payload.items:
-        doc = await db.menu_items.find_one({"id": it.menu_item_id, "date": today_str()})
+        doc = await db.menu_items.find_one({"id": it.menu_item_id})
         if not doc or not doc.get("is_available", True):
             raise HTTPException(status_code=400, detail="One of the items is unavailable today")
+        # Daily dishes can only be ordered on their posted day; pantry items never expire.
+        if doc.get("kind") != "standing" and doc.get("date") != today_str():
+            raise HTTPException(status_code=400, detail="One of the items is no longer on today's menu")
         if doc["available_qty"] < it.qty:
             raise HTTPException(status_code=400, detail=f"Only {doc['available_qty']} left of {doc['name']}")
         order_items.append(
@@ -732,6 +758,13 @@ async def admin_reply_request(
             }
         },
     )
+    # Tell the customer the kitchen answered their wish.
+    await _send_push(
+        await _user_push_tokens(req["user_id"]),
+        "The kitchen replied to your wish 🍲",
+        "Tap to see the chef's response in Omega's Kitchen.",
+        {"type": "request_reply", "request_id": request_id},
+    )
     return await db.custom_requests.find_one({"id": request_id}, {"_id": 0})
 
 
@@ -845,6 +878,58 @@ async def disable_2fa(payload: TwoFACodeIn, admin: dict = Depends(require_admin)
     return {"twofa_enabled": False}
 
 
+# ---------- push notifications ----------
+EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
+
+
+async def _send_push(tokens: List[str], title: str, body: str, data: Optional[dict] = None):
+    """Best-effort Expo push. Runs off the event loop and never raises into the request path."""
+    valid = [t for t in (tokens or []) if isinstance(t, str) and t.startswith("ExponentPushToken")]
+    if not valid:
+        return
+    messages = [
+        {"to": t, "title": title, "body": body, "sound": "default", "data": data or {}}
+        for t in valid
+    ]
+
+    def _post():
+        import requests
+
+        for i in range(0, len(messages), 100):  # Expo accepts up to 100 messages per request
+            requests.post(
+                EXPO_PUSH_URL,
+                json=messages[i : i + 100],
+                headers={"Content-Type": "application/json", "Accept": "application/json"},
+                timeout=15,
+            )
+
+    try:
+        await asyncio.to_thread(_post)
+    except Exception as exc:  # a notification hiccup must never break the admin action
+        logging.getLogger("omega").warning("push send failed: %s", exc)
+
+
+async def _customer_push_tokens() -> List[str]:
+    tokens: List[str] = []
+    async for u in db.users.find(
+        {"role": "user", "is_active": {"$ne": False}}, {"_id": 0, "push_tokens": 1}
+    ):
+        tokens.extend(u.get("push_tokens") or [])
+    return list(set(tokens))
+
+
+async def _user_push_tokens(user_id: str) -> List[str]:
+    doc = await db.users.find_one({"id": user_id}, {"_id": 0, "push_tokens": 1})
+    return (doc or {}).get("push_tokens") or []
+
+
+@api_router.post("/me/push-token")
+async def register_push_token(payload: PushTokenIn, user: dict = Depends(get_current_user)):
+    # One account can have several devices; $addToSet keeps the token set deduplicated.
+    await db.users.update_one({"id": user["id"]}, {"$addToSet": {"push_tokens": payload.token}})
+    return {"ok": True}
+
+
 # ---------- settings ----------
 @api_router.get("/settings")
 async def read_settings(user: dict = Depends(get_current_user)):
@@ -854,8 +939,17 @@ async def read_settings(user: dict = Depends(get_current_user)):
 @api_router.put("/admin/settings")
 async def update_settings(payload: SettingsIn, admin: dict = Depends(require_admin)):
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    was_open = (await get_settings())["kitchen_open"]
     if updates:
         await db.settings.update_one({"id": "app"}, {"$set": updates}, upsert=True)
+    # Kitchen just flipped offline → online: let every customer know they can order again.
+    if payload.kitchen_open is True and not was_open:
+        await _send_push(
+            await _customer_push_tokens(),
+            "Omega's Kitchen is now online 🍳",
+            "We're taking orders again — open the app to see today's menu and pre-order.",
+            {"type": "kitchen_online"},
+        )
     return await get_settings()
 
 

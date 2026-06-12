@@ -74,6 +74,8 @@ export interface MenuItem {
   interested_count: number;
   not_interested_count: number;
   my_interest: boolean | null;
+  // "daily" = today's freshly-cooked menu; "standing" = always-available pantry (pickles, namkeen).
+  kind?: "daily" | "standing";
 }
 
 export interface OrderItem {

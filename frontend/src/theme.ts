@@ -67,10 +67,10 @@ export const FOOD_IMAGES = [
   "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=1400&q=88&auto=format&fit=crop",
 ];
 
-export const HERO_IMAGE =
-  "https://images.unsplash.com/photo-1727352037068-9091d4789738?w=2000&q=92&auto=format&fit=crop";
+// Welcome-hero poster — the video's own first frame, bundled locally so the first
+// screen paints instantly with zero network dependency.
+export const HERO_IMAGE = require("../assets/videos/hero-poster.jpg");
 
-// Ambient kitchen footage for the welcome hero — streamed from a range-enabled CDN,
-// with HERO_IMAGE shown instantly beneath as a poster. Swap in your own footage anytime.
-export const HERO_VIDEO =
-  "https://videos.pexels.com/video-files/14150484/14150484-hd_1080_1920_25fps.mp4";
+// Welcome-hero footage — a ~12s 1080×1920 loop of fresh prep, transcoded from the 4K
+// master and bundled locally (~1.2 MB). Fully offline; HERO_IMAGE is its poster frame.
+export const HERO_VIDEO = require("../assets/videos/hero.mp4");

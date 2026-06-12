@@ -52,7 +52,7 @@ export default function Welcome() {
 
   return (
     <View style={styles.container} testID="welcome-screen">
-      <Image source={{ uri: HERO_IMAGE }} style={StyleSheet.absoluteFill} contentFit="cover" />
+      <Image source={HERO_IMAGE} style={StyleSheet.absoluteFill} contentFit="cover" />
       {!videoErrored && (
         <VideoView
           player={player}

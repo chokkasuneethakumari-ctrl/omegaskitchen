@@ -13,7 +13,9 @@
       "distribution": "internal",
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://omega-kitchen-api.onrender.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://omega-kitchen-api.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "224777711996-hc8ic3n59o70m52mu527en4ldq4gprs2.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "224777711996-hb03efvnckdc2ju69iar0uhu17gjnip4.apps.googleusercontent.com"
       }
     },
     "admin": {
@@ -28,7 +30,9 @@
       "autoIncrement": true,
       "android": { "buildType": "app-bundle" },
       "env": {
-        "EXPO_PUBLIC_BACKEND_URL": "https://omega-kitchen-api.onrender.com"
+        "EXPO_PUBLIC_BACKEND_URL": "https://omega-kitchen-api.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "224777711996-hc8ic3n59o70m52mu527en4ldq4gprs2.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "224777711996-hb03efvnckdc2ju69iar0uhu17gjnip4.apps.googleusercontent.com"
       }
     }
   },

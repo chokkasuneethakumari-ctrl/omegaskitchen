@@ -7,6 +7,8 @@ import React, {
 } from "react";
 
 import { api, clearToken, getToken, setToken, User } from "@/src/api/client";
+import { IS_ADMIN_APP } from "@/src/appVariant";
+import { registerPushToken } from "@/src/utils/push";
 
 interface RegisterData {
   name: string;
@@ -53,6 +55,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })();
   }, []);
+
+  // Register this device for push once a customer is signed in (customer app only). Best-effort —
+  // never blocks the UI; the backend uses these tokens for kitchen-online + wish-reply alerts.
+  useEffect(() => {
+    if (user?.role === "user" && !IS_ADMIN_APP) {
+      registerPushToken();
+    }
+  }, [user]);
 
   const login = useCallback(
     async (email: string, password: string): Promise<LoginResult> => {

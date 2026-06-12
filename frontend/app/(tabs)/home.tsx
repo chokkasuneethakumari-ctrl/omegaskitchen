@@ -18,7 +18,7 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { api, MenuItem } from "@/src/api/client";
+import { api, AppSettings, MenuItem } from "@/src/api/client";
 import Sheet from "@/src/components/Sheet";
 import { useToast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
@@ -31,6 +31,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
 
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [category, setCategory] = useState("All");
@@ -44,6 +45,12 @@ export default function HomeScreen() {
     try {
       const res = await api<{ items: MenuItem[] }>("/menu/today");
       setItems(res.items);
+      // Kitchen status + announcement are set by the admin app via /settings; surface them
+      // here so customers see the banner and know when ordering is paused. Best-effort — a
+      // settings hiccup must never blank out the menu.
+      try {
+        setSettings(await api<AppSettings>("/settings"));
+      } catch {}
     } catch (e: any) {
       toast.show(e.message || "Couldn't load menu", "error");
     } finally {
@@ -66,7 +73,8 @@ export default function HomeScreen() {
     [items, category],
   );
 
-  const featured = items[0];
+  // Feature a fresh daily dish (not a pantry item) in the hero.
+  const featured = items.find((i) => i.kind !== "standing") || items[0];
 
   const toggleInterest = async (item: MenuItem, interested: boolean) => {
     try {
@@ -119,6 +127,8 @@ export default function HomeScreen() {
 
   const renderItem = ({ item, index }: { item: MenuItem; index: number }) => {
     const soldOut = !item.is_available || item.available_qty <= 0;
+    const kitchenClosed = !!settings && !settings.kitchen_open;
+    const blocked = soldOut || kitchenClosed;
     return (
       <Animated.View entering={FadeInDown.delay(Math.min(index, 6) * 60)}>
         <View style={styles.card} testID={`menu-item-${item.id}`}>
@@ -182,11 +192,11 @@ export default function HomeScreen() {
             <Pressable
               testID={`preorder-button-${item.id}`}
               onPress={() => openPreOrder(item)}
-              disabled={soldOut}
-              style={[styles.orderBtn, soldOut && { backgroundColor: C.surfaceTertiary }]}
+              disabled={blocked}
+              style={[styles.orderBtn, blocked && { backgroundColor: C.surfaceTertiary }]}
             >
-              <Text style={[styles.orderBtnText, soldOut && { color: C.textTertiary }]}>
-                {soldOut ? "Sold Out" : "Pre-Order"}
+              <Text style={[styles.orderBtnText, blocked && { color: C.textTertiary }]}>
+                {soldOut ? "Sold Out" : kitchenClosed ? "Offline" : "Pre-Order"}
               </Text>
             </Pressable>
           </View>
@@ -259,6 +269,33 @@ export default function HomeScreen() {
           contentContainerStyle={{ paddingHorizontal: SP.lg, paddingBottom: SP.xl, gap: SP.md }}
           ListHeaderComponent={
             <View style={{ gap: SP.md, marginBottom: SP.xs }}>
+              {/* Kitchen offline — reflects the admin's online/offline toggle; wish stays open */}
+              {settings && !settings.kitchen_open && (
+                <View style={styles.closedBanner} testID="home-kitchen-closed">
+                  <Ionicons name="moon" size={18} color={C.warning} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.closedTitle}>Kitchen is offline right now</Text>
+                    <Text style={styles.closedSub}>
+                      Ordering is paused — but you can still send a wish and we&apos;ll reply.
+                    </Text>
+                    <Pressable
+                      testID="home-offline-wish"
+                      style={styles.wishCta}
+                      onPress={() => router.push("/(tabs)/requests")}
+                    >
+                      <Ionicons name="sparkles" size={14} color="#FFF" />
+                      <Text style={styles.wishCtaText}>Send a wish</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+              {/* Announcement — written by the admin in Settings, shown here on customer home */}
+              {!!settings?.announcement && (
+                <View style={styles.announceBanner} testID="home-announcement">
+                  <Ionicons name="megaphone" size={18} color={C.brand} />
+                  <Text style={styles.announceText}>{settings.announcement}</Text>
+                </View>
+              )}
               {/* Delivery coming soon glass banner */}
               <BlurView intensity={30} tint="light" style={styles.deliveryBanner}>
                 <View style={styles.deliveryIcon}>
@@ -273,8 +310,8 @@ export default function HomeScreen() {
                 </View>
               </BlurView>
 
-              {/* Featured hero */}
-              {featured && (
+              {/* Featured hero — only on the unfiltered "All" view */}
+              {category === "All" && featured && (
                 <Pressable
                   testID="featured-dish-card"
                   style={styles.hero}
@@ -299,7 +336,9 @@ export default function HomeScreen() {
                   </View>
                 </Pressable>
               )}
-              <Text style={styles.sectionTitle}>Today&apos;s Menu</Text>
+              <Text style={styles.sectionTitle}>
+                {category === "All" ? "Today's Menu" : category}
+              </Text>
             </View>
           }
           ListEmptyComponent={
@@ -452,6 +491,41 @@ const styles = StyleSheet.create({
     borderRadius: R.sm,
   },
   soonBadgeText: { fontFamily: F.bold, fontSize: 10, color: "#FFF", letterSpacing: 1 },
+  announceBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SP.md,
+    padding: SP.md,
+    borderRadius: R.md,
+    backgroundColor: C.brandTint,
+    borderWidth: 1,
+    borderColor: C.brand,
+  },
+  announceText: { flex: 1, fontFamily: F.medium, fontSize: 13.5, color: C.text, lineHeight: 19 },
+  closedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SP.md,
+    padding: SP.md,
+    borderRadius: R.md,
+    backgroundColor: C.warningTint,
+    borderWidth: 1,
+    borderColor: C.warning,
+  },
+  closedTitle: { fontFamily: F.semibold, fontSize: 14, color: C.text },
+  closedSub: { fontFamily: F.regular, fontSize: 12, color: C.textSecondary, marginTop: 1 },
+  wishCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    height: 34,
+    paddingHorizontal: SP.md,
+    borderRadius: R.pill,
+    backgroundColor: C.warning,
+    marginTop: SP.sm,
+  },
+  wishCtaText: { fontFamily: F.semibold, fontSize: 12.5, color: "#FFF" },
   hero: { height: 190, borderRadius: R.lg, overflow: "hidden" },
   heroContent: { flex: 1, justifyContent: "flex-end", padding: SP.lg },
   heroTag: {
