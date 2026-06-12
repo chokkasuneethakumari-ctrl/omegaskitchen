@@ -32,12 +32,13 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-image.png",
-          "imageWidth": 200,
+          "imageWidth": 240,
           "resizeMode": "contain",
-          "backgroundColor": "#000000"
+          "backgroundColor": "#1A110B"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "./plugins/withArm64Only"
     ],
     "experiments": {
       "typedRoutes": true

@@ -886,6 +886,12 @@ async def update_settings(payload: SettingsIn, admin: dict = Depends(require_adm
     return await get_settings()
 
 
+@api_router.get("/health")
+async def health():
+    # Cheap, DB-free liveness check used by the keep-alive pinger to avoid free-tier cold starts.
+    return {"status": "ok"}
+
+
 # ---------- seed ----------
 @app.on_event("startup")
 async def seed():
@@ -900,10 +906,23 @@ async def seed():
                 "phone": "+910000000000",
                 "role": "admin",
                 "password_hash": hash_password(ADMIN_PASSWORD),
+                "is_active": True,
                 "created_at": iso_now(),
             }
         )
         logger.info("Seeded admin account")
+    else:
+        # Keep the admin password in sync with ADMIN_PASSWORD so it can be reset from the
+        # Render dashboard at any time (Render is the source of truth for the admin login).
+        await db.users.update_one(
+            {"email": ADMIN_EMAIL},
+            {"$set": {
+                "password_hash": hash_password(ADMIN_PASSWORD),
+                "role": "admin",
+                "is_active": True,
+            }},
+        )
+        logger.info("Re-synced admin account from environment")
 
 
 app.include_router(api_router)
