@@ -30,6 +30,7 @@ db = client[os.environ["DB_NAME"]]
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGORITHM = "HS256"
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")  # Google "Web client" ID for sign-in
+GOOGLE_ANDROID_CLIENT_ID = os.environ.get("GOOGLE_ANDROID_CLIENT_ID", "")  # Android client ID(s), CSV
 TOKEN_TTL_DAYS = 7
 ADMIN_EMAIL = os.environ["ADMIN_EMAIL"]
 ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
@@ -292,9 +293,14 @@ async def google_auth(payload: GoogleAuthIn):
     from google.oauth2 import id_token as g_id_token  # noqa: PLC0415
 
     try:
-        info = g_id_token.verify_oauth2_token(payload.id_token, g_requests.Request(), GOOGLE_CLIENT_ID)
+        # Verify Google's signature/issuer/expiry, then accept only our own client IDs as the
+        # audience (web + any Android client IDs), since the token's aud varies by platform/flow.
+        info = g_id_token.verify_oauth2_token(payload.id_token, g_requests.Request())
     except Exception:  # noqa: BLE001
         raise HTTPException(status_code=401, detail="Could not verify Google sign-in")
+    accepted = {c.strip() for c in f"{GOOGLE_CLIENT_ID},{GOOGLE_ANDROID_CLIENT_ID}".split(",") if c.strip()}
+    if info.get("aud") not in accepted:
+        raise HTTPException(status_code=401, detail="Google sign-in is not authorized for this app")
     email = (info.get("email") or "").lower()
     if not email or not info.get("email_verified"):
         raise HTTPException(status_code=401, detail="Your Google account email is not verified")

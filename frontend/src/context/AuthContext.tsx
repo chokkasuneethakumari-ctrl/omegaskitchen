@@ -25,6 +25,7 @@ interface AuthCtx {
   login(email: string, password: string): Promise<LoginResult>;
   verify2fa(twofaToken: string, code: string): Promise<User>;
   register(data: RegisterData): Promise<User>;
+  googleSignIn(idToken: string): Promise<User>;
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
   deleteAccount(): Promise<void>;
   logout(): Promise<void>;
@@ -91,6 +92,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return res.user;
   }, []);
 
+  const googleSignIn = useCallback(async (idToken: string) => {
+    const res = await api<{ token: string; user: User }>("/auth/google", {
+      method: "POST",
+      body: { id_token: idToken },
+    });
+    await setToken(res.token);
+    setUser(res.user);
+    return res.user;
+  }, []);
+
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string) => {
       await api("/auth/change-password", {
@@ -114,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, verify2fa, register, changePassword, deleteAccount, logout }}
+      value={{ user, loading, login, verify2fa, register, googleSignIn, changePassword, deleteAccount, logout }}
     >
       {children}
     </AuthContext.Provider>

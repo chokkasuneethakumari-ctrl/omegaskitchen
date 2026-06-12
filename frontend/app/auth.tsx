@@ -13,9 +13,14 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IS_ADMIN_APP } from "@/src/appVariant";
+import GoogleSignInButton from "@/src/components/GoogleSignInButton";
 import { useToast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { C, F, R, SP } from "@/src/theme";
+
+// Google sign-in is shown only on the customer app, and only once the OAuth Web client ID
+// is baked into the build. Until then the button (and its auth-session hook) never render.
+const GOOGLE_ENABLED = !!process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID && !IS_ADMIN_APP;
 
 type Mode = "login" | "signup";
 
@@ -247,6 +252,17 @@ export default function AuthScreen() {
           )}
         </Pressable>
 
+        {GOOGLE_ENABLED && (
+          <>
+            <View style={styles.orRow}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>or</Text>
+              <View style={styles.orLine} />
+            </View>
+            <GoogleSignInButton />
+          </>
+        )}
+
         <View style={styles.paymentNote}>
           <Ionicons name="cash" size={16} color={C.success} />
           <Text style={styles.paymentNoteText}>Pay by cash at pickup · Online payment coming soon</Text>
@@ -354,6 +370,9 @@ const styles = StyleSheet.create({
     marginTop: SP.sm,
   },
   ctaText: { color: "#FFF", fontFamily: F.semibold, fontSize: 16 },
+  orRow: { flexDirection: "row", alignItems: "center", gap: SP.md, marginTop: SP.lg },
+  orLine: { flex: 1, height: 1, backgroundColor: C.border },
+  orText: { fontFamily: F.medium, fontSize: 12, color: C.textTertiary },
   paymentNote: {
     flexDirection: "row",
     alignItems: "center",
