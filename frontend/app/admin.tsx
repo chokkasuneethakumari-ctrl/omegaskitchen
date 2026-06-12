@@ -78,7 +78,7 @@ export default function AdminScreen() {
   const [dishName, setDishName] = useState("");
   const [dishDesc, setDishDesc] = useState("");
   const [dishPrice, setDishPrice] = useState("");
-  const [dishQty, setDishQty] = useState("20");
+  const [dishInStock, setDishInStock] = useState(true);
   const [dishCategory, setDishCategory] = useState("Curries");
   const [dishKind, setDishKind] = useState<"daily" | "standing">("daily");
   const [dishImage, setDishImage] = useState(FOOD_IMAGES[0]);
@@ -199,9 +199,9 @@ export default function AdminScreen() {
     setDishName("");
     setDishDesc("");
     setDishPrice("");
-    setDishQty("20");
     setDishCategory("Curries");
     setDishKind("daily");
+    setDishInStock(true);
     setDishImage(FOOD_IMAGES[0]);
   };
 
@@ -216,9 +216,9 @@ export default function AdminScreen() {
     setDishName(item.name);
     setDishDesc(item.description || "");
     setDishPrice(String(item.price));
-    setDishQty(String(item.available_qty));
     setDishCategory(item.category || "Curries");
     setDishKind(item.kind === "standing" ? "standing" : "daily");
+    setDishInStock(item.is_available !== false);
     setDishImage(item.image_url || FOOD_IMAGES[0]);
     setAddOpen(true);
   };
@@ -235,7 +235,8 @@ export default function AdminScreen() {
       price: Number(dishPrice),
       category: dishCategory,
       image_url: dishImage,
-      available_qty: Number(dishQty) || 0,
+      available_qty: 9999, // stock is boolean now (is_available); keep qty effectively unlimited
+      is_available: dishInStock,
       kind: dishKind,
     };
     try {
@@ -735,7 +736,8 @@ export default function AdminScreen() {
                       {item.name}
                     </Text>
                     <Text style={styles.menuMeta}>
-                      {item.category} · {formatPrice(item.price)} · {item.available_qty} left
+                      {item.category} · {formatPrice(item.price)} ·{" "}
+                      {item.is_available ? "In stock" : "Out of stock"}
                       {item.kind === "standing" ? " · pantry" : ""}
                     </Text>
                     <View style={styles.interestRow}>
@@ -1088,32 +1090,16 @@ export default function AdminScreen() {
             value={dishDesc}
             onChangeText={setDishDesc}
           />
-          <View style={{ flexDirection: "row", gap: SP.md }}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sheetLabel}>Price (₹)</Text>
-              <TextInput
-                testID="dish-price-input"
-                style={styles.sheetInput}
-                placeholder="180"
-                placeholderTextColor={C.textTertiary}
-                value={dishPrice}
-                onChangeText={setDishPrice}
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sheetLabel}>Portions</Text>
-              <TextInput
-                testID="dish-qty-input"
-                style={styles.sheetInput}
-                placeholder="20"
-                placeholderTextColor={C.textTertiary}
-                value={dishQty}
-                onChangeText={setDishQty}
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
+          <Text style={styles.sheetLabel}>Price (₹)</Text>
+          <TextInput
+            testID="dish-price-input"
+            style={styles.sheetInput}
+            placeholder="180"
+            placeholderTextColor={C.textTertiary}
+            value={dishPrice}
+            onChangeText={setDishPrice}
+            keyboardType="numeric"
+          />
           <Text style={styles.sheetLabel}>Category</Text>
           <ScrollView
             horizontal
@@ -1156,6 +1142,31 @@ export default function AdminScreen() {
                   color={dishKind === opt.k ? "#FFF" : C.textSecondary}
                 />
                 <Text style={[styles.kindChipText, dishKind === opt.k && { color: "#FFF" }]}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.sheetLabel}>Stock</Text>
+          <View style={styles.kindRow}>
+            {(
+              [
+                { v: true, label: "In stock", icon: "checkmark-circle" },
+                { v: false, label: "Out of stock", icon: "close-circle" },
+              ] as { v: boolean; label: string; icon: string }[]
+            ).map((opt) => (
+              <Pressable
+                key={String(opt.v)}
+                testID={`dish-stock-${opt.v ? "in" : "out"}`}
+                onPress={() => setDishInStock(opt.v)}
+                style={[styles.kindChip, dishInStock === opt.v && styles.kindChipActive]}
+              >
+                <Ionicons
+                  name={opt.icon as any}
+                  size={15}
+                  color={dishInStock === opt.v ? "#FFF" : C.textSecondary}
+                />
+                <Text style={[styles.kindChipText, dishInStock === opt.v && { color: "#FFF" }]}>
                   {opt.label}
                 </Text>
               </Pressable>

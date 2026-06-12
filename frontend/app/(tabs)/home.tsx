@@ -24,6 +24,11 @@ import { useToast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { C, F, formatPrice, R, SP } from "@/src/theme";
 
+// Customer menu sections, ordered to match the admin's category list.
+const CATEGORY_ORDER = ["Curries", "Rice", "Breads", "Combos", "Snacks", "Dessert", "Pickles", "Namkeen"];
+
+type Row = { type: "header"; title: string; key: string } | { type: "item"; item: MenuItem };
+
 export default function HomeScreen() {
   const { user } = useAuth();
   const toast = useToast();
@@ -68,10 +73,27 @@ export default function HomeScreen() {
     return ["All", ...Array.from(set)];
   }, [items]);
 
-  const filtered = useMemo(
-    () => (category === "All" ? items : items.filter((i) => i.category === category)),
-    [items, category],
-  );
+  // Group the menu into category sections (Curries, Breads, …, Pickles, Namkeen) so customers
+  // browse it the way the admin organises it. A chip narrows to a single section.
+  const listData = useMemo<Row[]>(() => {
+    const source = category === "All" ? items : items.filter((i) => i.category === category);
+    const groups = new Map<string, MenuItem[]>();
+    for (const it of source) {
+      const c = it.category || "Other";
+      if (!groups.has(c)) groups.set(c, []);
+      groups.get(c)!.push(it);
+    }
+    const ordered = [
+      ...CATEGORY_ORDER.filter((c) => groups.has(c)),
+      ...[...groups.keys()].filter((c) => !CATEGORY_ORDER.includes(c)).sort(),
+    ];
+    const rows: Row[] = [];
+    for (const c of ordered) {
+      rows.push({ type: "header", title: c, key: `h-${c}` });
+      for (const it of groups.get(c)!) rows.push({ type: "item", item: it });
+    }
+    return rows;
+  }, [items, category]);
 
   // Feature a fresh daily dish (not a pantry item) in the hero.
   const featured = items.find((i) => i.kind !== "standing") || items[0];
@@ -115,7 +137,7 @@ export default function HomeScreen() {
         body: { items: [{ menu_item_id: sheetItem.id, qty }], note },
       });
       setSheetItem(null);
-      toast.show("Order placed! You're in the queue 🍳");
+      toast.show("Order placed! You're in line 🍳");
       load();
       router.push("/(tabs)/queue");
     } catch (e: any) {
@@ -145,7 +167,7 @@ export default function HomeScreen() {
                 {item.description}
               </Text>
               <Text style={[styles.qtyLeft, soldOut && { color: C.error }]}>
-                {soldOut ? "Sold out for today" : `${item.available_qty} portions left`}
+                {soldOut ? "Sold out" : "In stock"}
               </Text>
             </View>
           </View>
@@ -205,6 +227,13 @@ export default function HomeScreen() {
     );
   };
 
+  const renderRow = ({ item: row, index }: { item: Row; index: number }) =>
+    row.type === "header" ? (
+      <Text style={styles.sectionTitle}>{row.title}</Text>
+    ) : (
+      renderItem({ item: row.item, index })
+    );
+
   const firstName = (user?.name || "").split(" ")[0];
   const orderTotal = sheetItem ? sheetItem.price * qty : 0;
 
@@ -253,9 +282,9 @@ export default function HomeScreen() {
         </View>
       ) : (
         <FlatList
-          data={filtered}
-          keyExtractor={(i) => i.id}
-          renderItem={renderItem}
+          data={listData}
+          keyExtractor={(row) => (row.type === "header" ? row.key : `i-${row.item.id}`)}
+          renderItem={renderRow}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -336,9 +365,6 @@ export default function HomeScreen() {
                   </View>
                 </Pressable>
               )}
-              <Text style={styles.sectionTitle}>
-                {category === "All" ? "Today's Menu" : category}
-              </Text>
             </View>
           }
           ListEmptyComponent={

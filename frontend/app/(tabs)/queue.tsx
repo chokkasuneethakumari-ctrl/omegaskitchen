@@ -71,7 +71,7 @@ export default function QueueScreen() {
   return (
     <View style={styles.container} testID="queue-screen">
       <View style={[styles.header, { paddingTop: insets.top + SP.sm }]}>
-        <Text style={styles.title}>Live Queue</Text>
+        <Text style={styles.title}>Live Orders</Text>
         <View style={styles.fifoBadge}>
           <Ionicons name="time-outline" size={13} color={C.brand} />
           <Text style={styles.fifoText}>In the order received</Text>

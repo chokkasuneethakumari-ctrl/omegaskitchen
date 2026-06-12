@@ -48,7 +48,7 @@ export const STATUS_META: Record<
   string,
   { label: string; color: string; tint: string; icon: string }
 > = {
-  placed: { label: "In Queue", color: "#F39C12", tint: "#FEF5E7", icon: "time" },
+  placed: { label: "Placed", color: "#F39C12", tint: "#FEF5E7", icon: "time" },
   cooking: { label: "Cooking", color: "#D35400", tint: "#FDEBD0", icon: "flame" },
   ready: { label: "Ready", color: "#27AE60", tint: "#E8F8EF", icon: "checkmark-circle" },
   completed: { label: "Picked Up", color: "#6E6E73", tint: "#F2F2F7", icon: "bag-check" },

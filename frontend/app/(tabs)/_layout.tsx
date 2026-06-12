@@ -97,7 +97,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="queue"
         options={{
-          title: "Queue",
+          title: "Orders",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "time" : "time-outline"} size={22} color={color} />
           ),

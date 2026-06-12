@@ -157,7 +157,8 @@ class MenuItemIn(BaseModel):
     price: float = Field(gt=0)
     category: str = Field(default="Curries", max_length=30)
     image_url: str = Field(default="")
-    available_qty: int = Field(default=20, ge=0, le=500)
+    available_qty: int = Field(default=20, ge=0, le=100000)
+    is_available: bool = True
     # "daily" = today's freshly-cooked menu (expires end of day); "standing" = always-available
     # pantry goods such as pickles and namkeen that never expire.
     kind: Literal["daily", "standing"] = "daily"
@@ -170,7 +171,7 @@ class MenuItemUpdate(BaseModel):
     category: Optional[str] = Field(default=None, max_length=30)
     image_url: Optional[str] = Field(default=None, max_length=600)
     is_available: Optional[bool] = None
-    available_qty: Optional[int] = Field(default=None, ge=0, le=500)
+    available_qty: Optional[int] = Field(default=None, ge=0, le=100000)
     price: Optional[float] = Field(default=None, gt=0)
     kind: Optional[Literal["daily", "standing"]] = None
 
@@ -451,7 +452,7 @@ async def create_menu_item(payload: MenuItemIn, admin: dict = Depends(require_ad
         "category": payload.category.strip() or "Curries",
         "image_url": payload.image_url,
         "available_qty": payload.available_qty,
-        "is_available": True,
+        "is_available": payload.is_available,
         "kind": payload.kind,
         "date": today_str(),
         "created_at": iso_now(),
