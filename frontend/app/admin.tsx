@@ -549,11 +549,6 @@ export default function AdminScreen() {
                     <View style={styles.orderActions}>
                       <View>
                         <Text style={styles.orderTotal}>{formatPrice(order.total)}</Text>
-                        {order.credit_applied ? (
-                          <Text style={styles.creditApplied}>
-                            ₹{order.credit_applied} credit applied
-                          </Text>
-                        ) : null}
                       </View>
                       <View style={{ flex: 1 }} />
                       {order.status === "placed" && (
@@ -1381,7 +1376,6 @@ const styles = StyleSheet.create({
     borderTopColor: C.border,
   },
   orderTotal: { fontFamily: F.bold, fontSize: 16, color: C.text },
-  creditApplied: { fontFamily: F.medium, fontSize: 11, color: C.success, marginTop: 1 },
   iconBtn: {
     width: 38,
     height: 38,

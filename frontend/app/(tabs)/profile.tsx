@@ -178,20 +178,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* refer & earn */}
-        <Pressable
-          testID="profile-referral"
-          style={styles.deliveryCard}
-          onPress={() => router.push("/referral")}
-        >
-          <Ionicons name="gift" size={20} color={C.brand} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.deliveryTitle}>Refer &amp; Earn</Text>
-            <Text style={styles.deliverySub}>Invite friends — you both get kitchen credit</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={C.brand} />
-        </Pressable>
-
         {/* order history */}
         <Text style={styles.sectionTitle}>Order History</Text>
         {orders.length === 0 ? (

@@ -41,8 +41,6 @@ IN_LINE_STATUSES = ["placed", "cooking"]
 ACTIVE_STATUSES = ["placed", "cooking", "ready"]
 TWOFA_ISSUER = "Omega's Kitchen"
 TWOFA_PENDING_TTL_MINUTES = 5
-REFERRAL_REWARD = 50.0  # ₹ credit to the referrer when their invitee places a first order
-REFERRED_BONUS = 25.0  # ₹ welcome credit to a new user who signed up with a referral code
 
 app = FastAPI(title="Omega's Kitchen API")
 api_router = APIRouter(prefix="/api")
@@ -102,34 +100,9 @@ async def get_settings() -> dict:
     }
 
 
-def gen_referral_code() -> str:
-    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no ambiguous chars
-    return "".join(secrets.choice(alphabet) for _ in range(6))
-
-
 def gen_temp_password(length: int = 10) -> str:
     alphabet = string.ascii_letters + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
-
-
-async def unique_referral_code() -> str:
-    while True:
-        code = gen_referral_code()
-        if not await db.users.find_one({"referral_code": code}):
-            return code
-
-
-async def _maybe_reward_referral(user_id: str):
-    """On a user's first order, credit their referrer and give the user a welcome bonus."""
-    u = await db.users.find_one({"id": user_id}, {"_id": 0})
-    if not u or u.get("referral_rewarded") or not u.get("referred_by"):
-        return
-    await db.users.update_one(
-        {"id": user_id}, {"$set": {"referral_rewarded": True}, "$inc": {"credit": REFERRED_BONUS}}
-    )
-    await db.users.update_one(
-        {"id": u["referred_by"]}, {"$inc": {"credit": REFERRAL_REWARD, "referral_count": 1}}
-    )
 
 
 async def get_current_user(
@@ -166,7 +139,6 @@ class RegisterIn(BaseModel):
     email: EmailStr
     phone: str = Field(min_length=7, max_length=16)
     password: str = Field(min_length=6, max_length=128)
-    referral_code: Optional[str] = Field(default=None, max_length=12)
 
 
 class LoginIn(BaseModel):
@@ -201,7 +173,6 @@ class OrderItemIn(BaseModel):
 class OrderIn(BaseModel):
     items: List[OrderItemIn]
     note: str = Field(default="", max_length=300)
-    apply_credit: bool = False
 
 
 class StatusIn(BaseModel):
@@ -253,13 +224,6 @@ async def register(payload: RegisterIn):
     # Single generic conflict message so registration can't enumerate which emails/phones exist.
     if await db.users.find_one({"$or": [{"email": email}, {"phone": payload.phone}]}):
         raise HTTPException(status_code=400, detail="An account with those details already exists")
-    referred_by = None
-    if payload.referral_code:
-        referrer = await db.users.find_one(
-            {"referral_code": payload.referral_code.strip().upper(), "role": "user"}, {"_id": 0}
-        )
-        if referrer:
-            referred_by = referrer["id"]
     user = {
         "id": str(uuid.uuid4()),
         "name": payload.name.strip(),
@@ -268,11 +232,6 @@ async def register(payload: RegisterIn):
         "role": "user",
         "is_active": True,
         "twofa_enabled": False,
-        "referral_code": await unique_referral_code(),
-        "referred_by": referred_by,
-        "referral_count": 0,
-        "referral_rewarded": False,
-        "credit": 0.0,
         "created_at": iso_now(),
     }
     await db.users.insert_one({**user, "password_hash": hash_password(payload.password)})
@@ -317,11 +276,6 @@ async def google_auth(payload: GoogleAuthIn):
             "role": "user",
             "is_active": True,
             "twofa_enabled": False,
-            "referral_code": await unique_referral_code(),
-            "referred_by": None,
-            "referral_count": 0,
-            "referral_rewarded": False,
-            "credit": 0.0,
             "created_at": iso_now(),
         }
         await db.users.insert_one({**user, "password_hash": "", "google_account": True})
@@ -412,22 +366,6 @@ async def update_profile(payload: UpdateProfileIn, user: dict = Depends(get_curr
     return await db.users.find_one(
         {"id": user["id"]}, {"_id": 0, "password_hash": 0, "totp_secret": 0}
     )
-
-
-@api_router.get("/referral")
-async def my_referral(user: dict = Depends(get_current_user)):
-    doc = await db.users.find_one({"id": user["id"]}, {"_id": 0})
-    code = (doc or {}).get("referral_code")
-    if not code:
-        code = await unique_referral_code()
-        await db.users.update_one({"id": user["id"]}, {"$set": {"referral_code": code}})
-    return {
-        "referral_code": code,
-        "referral_count": (doc or {}).get("referral_count", 0),
-        "credit": (doc or {}).get("credit", 0.0),
-        "reward_per_referral": REFERRAL_REWARD,
-        "referred_bonus": REFERRED_BONUS,
-    }
 
 
 # ---------- menu ----------
@@ -557,19 +495,6 @@ async def create_order(payload: OrderIn, user: dict = Depends(get_current_user))
                 )
             raise HTTPException(status_code=400, detail=f"{oi['name']} just sold out")
         decremented.append(oi)
-    credit_applied = 0.0
-    if payload.apply_credit:
-        udoc = await db.users.find_one({"id": user["id"]}, {"_id": 0})
-        avail = float((udoc or {}).get("credit", 0) or 0)
-        want = round(min(avail, total), 2)
-        if want > 0:
-            # Conditional decrement so concurrent orders can't double-spend the same credit.
-            res = await db.users.update_one(
-                {"id": user["id"], "credit": {"$gte": want}}, {"$inc": {"credit": -want}}
-            )
-            if res.matched_count:
-                credit_applied = want
-                total = round(total - credit_applied, 2)
     order = {
         "id": str(uuid.uuid4()),
         "user_id": user["id"],
@@ -577,7 +502,6 @@ async def create_order(payload: OrderIn, user: dict = Depends(get_current_user))
         "user_phone": user["phone"],
         "items": order_items,
         "total": total,
-        "credit_applied": credit_applied,
         "note": payload.note.strip(),
         "status": "placed",
         "payment_method": "cash_on_pickup",
@@ -586,7 +510,6 @@ async def create_order(payload: OrderIn, user: dict = Depends(get_current_user))
         "status_history": [{"status": "placed", "at": iso_now()}],
     }
     await db.orders.insert_one({**order})
-    await _maybe_reward_referral(user["id"])
     return order
 
 
@@ -749,7 +672,6 @@ async def accept_request(request_id: str, user: dict = Depends(get_current_user)
         {"id": request_id},
         {"$set": {"status": "converted", "converted_order_id": order["id"]}},
     )
-    await _maybe_reward_referral(user["id"])
     return order
 
 
@@ -848,8 +770,6 @@ async def admin_users(admin: dict = Depends(require_admin)):
         u["order_count"] = counts.get(u["id"], 0)
         u["twofa_enabled"] = bool(u.get("twofa_enabled"))
         u["is_active"] = u.get("is_active", True)
-        u["credit"] = u.get("credit", 0.0)
-        u["referral_count"] = u.get("referral_count", 0)
     return {"count": len(users), "users": users}
 
 

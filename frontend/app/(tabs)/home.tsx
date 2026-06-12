@@ -39,19 +39,11 @@ export default function HomeScreen() {
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
   const [placing, setPlacing] = useState(false);
-  const [credit, setCredit] = useState(0);
-  const [applyCredit, setApplyCredit] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res = await api<{ items: MenuItem[] }>("/menu/today");
       setItems(res.items);
-      try {
-        const r = await api<{ credit: number }>("/referral");
-        setCredit(r.credit || 0);
-      } catch {
-        // referral/credit is non-critical for the menu
-      }
     } catch (e: any) {
       toast.show(e.message || "Couldn't load menu", "error");
     } finally {
@@ -103,7 +95,6 @@ export default function HomeScreen() {
   const openPreOrder = (item: MenuItem) => {
     setQty(1);
     setNote("");
-    setApplyCredit(false);
     setSheetItem(item);
   };
 
@@ -113,10 +104,9 @@ export default function HomeScreen() {
     try {
       await api("/orders", {
         method: "POST",
-        body: { items: [{ menu_item_id: sheetItem.id, qty }], note, apply_credit: applyCredit },
+        body: { items: [{ menu_item_id: sheetItem.id, qty }], note },
       });
       setSheetItem(null);
-      setApplyCredit(false);
       toast.show("Order placed! You're in the queue 🍳");
       load();
       router.push("/(tabs)/queue");
@@ -207,8 +197,6 @@ export default function HomeScreen() {
 
   const firstName = (user?.name || "").split(" ")[0];
   const orderTotal = sheetItem ? sheetItem.price * qty : 0;
-  const discount = applyCredit ? Math.min(credit, orderTotal) : 0;
-  const payTotal = Math.max(0, orderTotal - discount);
 
   return (
     <View style={styles.container} testID="home-screen">
@@ -375,26 +363,6 @@ export default function HomeScreen() {
               <View style={{ flex: 1 }} />
               <Text style={styles.paymentSoon}>Online pay coming soon</Text>
             </View>
-            {credit > 0 && (
-              <Pressable
-                testID="apply-credit-toggle"
-                style={styles.creditRow}
-                onPress={() => setApplyCredit((v) => !v)}
-              >
-                <Ionicons name="wallet" size={18} color={C.brand} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.creditTitle}>Use kitchen credit</Text>
-                  <Text style={styles.creditSub}>
-                    {applyCredit
-                      ? `−${formatPrice(discount)} applied`
-                      : `${formatPrice(credit)} available`}
-                  </Text>
-                </View>
-                <View style={[styles.toggleBox, applyCredit && styles.toggleBoxOn]}>
-                  {applyCredit && <Ionicons name="checkmark" size={14} color="#FFF" />}
-                </View>
-              </Pressable>
-            )}
             <Pressable
               testID="confirm-order-button"
               style={({ pressed }) => [styles.confirmBtn, (pressed || placing) && { opacity: 0.85 }]}
@@ -404,7 +372,7 @@ export default function HomeScreen() {
               {placing ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
-                <Text style={styles.confirmText}>Join Queue · {formatPrice(payTotal)}</Text>
+                <Text style={styles.confirmText}>Join Queue · {formatPrice(orderTotal)}</Text>
               )}
             </Pressable>
           </View>
@@ -600,28 +568,6 @@ const styles = StyleSheet.create({
   },
   paymentText: { fontFamily: F.semibold, fontSize: 13, color: C.success },
   paymentSoon: { fontFamily: F.regular, fontSize: 11, color: C.textSecondary },
-  creditRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SP.md,
-    backgroundColor: C.brandTint,
-    borderRadius: R.md,
-    padding: SP.md,
-    marginBottom: SP.lg,
-  },
-  creditTitle: { fontFamily: F.semibold, fontSize: 14, color: C.text },
-  creditSub: { fontFamily: F.medium, fontSize: 12, color: C.brand, marginTop: 1 },
-  toggleBox: {
-    width: 24,
-    height: 24,
-    borderRadius: R.sm,
-    borderWidth: 1.5,
-    borderColor: C.borderStrong,
-    backgroundColor: C.card,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  toggleBoxOn: { backgroundColor: C.brand, borderColor: C.brand },
   confirmBtn: {
     height: 54,
     borderRadius: R.lg,

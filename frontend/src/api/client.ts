@@ -60,9 +60,6 @@ export interface User {
   role: "user" | "admin";
   is_active?: boolean;
   twofa_enabled?: boolean;
-  credit?: number;
-  referral_code?: string;
-  referral_count?: number;
 }
 
 export interface MenuItem {
@@ -93,7 +90,6 @@ export interface Order {
   user_phone: string;
   items: OrderItem[];
   total: number;
-  credit_applied?: number;
   note: string;
   status: string;
   payment_method: string;
@@ -144,17 +140,7 @@ export interface AdminUser {
   is_active: boolean;
   twofa_enabled: boolean;
   order_count: number;
-  credit: number;
-  referral_count: number;
   created_at: string;
-}
-
-export interface Referral {
-  referral_code: string;
-  referral_count: number;
-  credit: number;
-  reward_per_referral: number;
-  referred_bonus: number;
 }
 
 export interface AppSettings {
