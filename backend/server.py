@@ -29,6 +29,7 @@ db = client[os.environ["DB_NAME"]]
 
 JWT_SECRET = os.environ["JWT_SECRET"]
 JWT_ALGORITHM = "HS256"
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")  # Google "Web client" ID for sign-in
 TOKEN_TTL_DAYS = 7
 ADMIN_EMAIL = os.environ["ADMIN_EMAIL"]
 ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
@@ -274,6 +275,52 @@ async def register(payload: RegisterIn):
         "created_at": iso_now(),
     }
     await db.users.insert_one({**user, "password_hash": hash_password(payload.password)})
+    return {"token": create_token(user), "user": user}
+
+
+class GoogleAuthIn(BaseModel):
+    id_token: str
+
+
+@api_router.post("/auth/google")
+async def google_auth(payload: GoogleAuthIn):
+    # Verify Google's signed ID token server-side, then sign the user in (creating the account
+    # on first use). Enabled by the GOOGLE_CLIENT_ID env var (the Google "Web client" ID).
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Google sign-in is not configured")
+    from google.auth.transport import requests as g_requests  # noqa: PLC0415
+    from google.oauth2 import id_token as g_id_token  # noqa: PLC0415
+
+    try:
+        info = g_id_token.verify_oauth2_token(payload.id_token, g_requests.Request(), GOOGLE_CLIENT_ID)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=401, detail="Could not verify Google sign-in")
+    email = (info.get("email") or "").lower()
+    if not email or not info.get("email_verified"):
+        raise HTTPException(status_code=401, detail="Your Google account email is not verified")
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    if user:
+        if not user.get("is_active", True):
+            raise HTTPException(status_code=403, detail="This account has been disabled")
+    else:
+        user = {
+            "id": str(uuid.uuid4()),
+            "name": info.get("name") or email.split("@")[0],
+            "email": email,
+            "phone": "",
+            "role": "user",
+            "is_active": True,
+            "twofa_enabled": False,
+            "referral_code": await unique_referral_code(),
+            "referred_by": None,
+            "referral_count": 0,
+            "referral_rewarded": False,
+            "credit": 0.0,
+            "created_at": iso_now(),
+        }
+        await db.users.insert_one({**user, "password_hash": "", "google_account": True})
+    user.pop("password_hash", None)
+    user.pop("totp_secret", None)
     return {"token": create_token(user), "user": user}
 
 

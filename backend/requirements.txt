@@ -16,6 +16,7 @@ qrcode[pil]>=7.4.2
 tzdata>=2024.2
 python-multipart>=0.0.9
 requests>=2.31.0          # Resend API calls (email_service) + backend tests
+google-auth>=2.27.0       # verify Google Sign-In ID tokens (/auth/google)
 
 # test-only
 pytest>=8.0.0
